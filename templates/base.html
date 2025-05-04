@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Analytics Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#4e73df',
+                            dark: '#2e59d9',
+                            light: '#6f8be8',
+                        },
+                        secondary: '#1cc88a',
+                        tertiary: '#36b9cc',
+                        warning: '#f6c23e',
+                        danger: '#e74a3b',
+                        dark: '#5a5c69',
+                        light: '#f8f9fc',
+                    },
+                    boxShadow: {
+                        card: '0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15)',
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-primary">Data Analytics Dashboard</h1>
+            <nav>
+                <ul class="flex space-x-6">
+                    <li><a href="/" class="font-semibold text-gray-600 hover:text-primary transition-colors">Home</a></li>
+                    <li><a href="/upload" class="font-semibold text-gray-600 hover:text-primary transition-colors">Upload</a></li>
+                    <li><a href="/data" class="font-semibold text-gray-600 hover:text-primary transition-colors">Data</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-white shadow-inner py-4 mt-8">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>© 2023 Data Analytics Dashboard</p>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p id="loading-text" class="text-lg">Loading...</p>
+        </div>
+    </div>
+</body>
+</html> 

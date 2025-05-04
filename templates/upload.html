@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Data - AI in Education Survey Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <header>
+        <h1>AI in Education Survey Dashboard</h1>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('upload_file') }}" class="active">Upload Data</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="upload-container">
+        <section class="upload-section">
+            <h2>Upload Survey Data</h2>
+            
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for message in messages %}
+                <div class="message">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+            
+            <div class="upload-form">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="file">Select CSV File:</label>
+                        <input type="file" id="file" name="file" accept=".csv" required>
+                    </div>
+                    
+                    <div class="form-info">
+                        <h3>Required Format</h3>
+                        <p>CSV file must include the following columns:</p>
+                        <ul>
+                            <li>Level of Study</li>
+                            <li>Faculty</li>
+                            <li>AI Familiarity</li>
+                        </ul>
+                        <p>Additional recommended columns:</p>
+                        <ul>
+                            <li>Usage Frequency</li>
+                            <li>AI Tools Used (comma separated)</li>
+                            <li>Challenges (comma separated)</li>
+                            <li>Improves Learning</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="submit-btn">Upload and Process</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <p>Created for the AI in Education Survey Analysis</p>
+    </footer>
+</body>
+</html> 

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Dashboard</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header>
+            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-medium">Data Analytics Dashboard</h1>
+                    <span class="mx-3 text-white opacity-50">|</span>
+                    <h2 class="text-base font-normal opacity-90">{{ dataset_name }}</h2>
+                </div>
+                <div>
+                    <a href="/" class="text-white opacity-80 hover:opacity-100 transition-colors">
+                        <i class="fas fa-home mr-1"></i> Home
+                    </a>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-4">
+            <!-- Status bar -->
+            <div class="mb-4 card">
+                <div class="card-header">
+                    <div>
+                        <h2>Dataset Overview</h2>
+                        <p class="text-sm text-gray-500">Uploaded: {{ upload_date }}</p>
+                    </div>
+                    <div class="hidden" id="filter-indicator">
+                        <span class="badge badge-warning">
+                            <i class="fas fa-filter mr-1"></i> Filters Applied
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats and filters grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <!-- Stats cards -->
+                <div class="md:col-span-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Key Metrics</h2>
+                        </div>
+                        <div class="card-body">
+                            <div id="data-stats" class="stats-grid">
+                                <!-- Stats will be loaded dynamically -->
+                                <div class="stat-card">
+                                    <h3>Total Rows</h3>
+                                    <div class="value">...</div>
+                                </div>
+                                <div class="stat-card">
+                                    <h3>Total Columns</h3>
+                                    <div class="value">...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="md:col-span-1">
+                    <div class="filters-panel">
+                        <h3><i class="fas fa-filter mr-1"></i> Filters</h3>
+                        <form id="filter-form">
+                            <div id="filter-options">
+                                <!-- Filters will be loaded dynamically -->
+                                <div class="filter-group">
+                                    <p class="text-sm text-gray-500">Loading filters...</p>
+                                </div>
+                            </div>
+                            <div class="filter-actions">
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    <i class="fas fa-check mr-1"></i> Apply Filters
+                                </button>
+                                <button type="button" id="reset-filters" class="btn btn-secondary btn-block mt-2">
+                                    <i class="fas fa-undo mr-1"></i> Reset
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts section -->
+            <div class="charts-section mb-4">
+                <div class="charts-header">
+                    <h2><i class="fas fa-chart-bar mr-1"></i> Visualizations</h2>
+                    <div class="control-group">
+                        <label for="chart-type">View:</label>
+                        <select id="chart-type" class="chart-select">
+                            <option value="all">All Charts</option>
+                            <option value="bar">Bar Charts</option>
+                            <option value="histogram">Histograms</option>
+                            <option value="scatter">Scatter Plots</option>
+                        </select>
+                        <button id="create-scatter-btn" class="btn btn-success ml-2">
+                            <i class="fas fa-plus mr-1"></i> Create Scatter Plot
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="chart-container">
+                    <!-- Charts will be loaded dynamically -->
+                    <div class="flex items-center justify-center p-12 bg-gray-50 rounded-lg">
+                        <div class="text-center">
+                            <div class="loading-spinner mx-auto mb-4"></div>
+                            <p class="text-gray-500">Loading visualizations...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <!-- Model training -->
+                <div class="md:col-span-1">
+                    <div class="card h-full">
+                        <div class="card-header">
+                            <h2><i class="fas fa-brain mr-1"></i> Train Model</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="model-form" class="space-y-4">
+                                <div class="form-group">
+                                    <label for="target-column">Target Column:</label>
+                                    <select id="target-column" class="w-full p-2 border border-gray-300 rounded">
+                                        <option value="">Select a column...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="model-type">Model Type:</label>
+                                    <select id="model-type" class="w-full p-2 border border-gray-300 rounded">
+                                        <option value="LinearRegression">Linear Regression</option>
+                                        <option value="RandomForest">Random Forest</option>
+                                        <option value="GradientBoosting">Gradient Boosting</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    <i class="fas fa-play mr-1"></i> Train Model
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Model results -->
+                <div class="md:col-span-2">
+                    <div id="model-section" class="card h-full hidden">
+                        <div class="card-header">
+                            <h2><i class="fas fa-chart-line mr-1"></i> Model Results</h2>
+                        </div>
+                        <div class="card-body">
+                            <div id="model-results">
+                                <!-- Model results will be loaded dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Insights section -->
+            <div id="insights-section" class="insights-section mb-4 hidden">
+                <div class="card-header">
+                    <h2><i class="fas fa-lightbulb mr-1"></i> AI Insights</h2>
+                </div>
+                <div class="card-body">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-1">
+                            <div class="insights-form">
+                                <form id="insights-form" class="space-y-4">
+                                    <div class="form-group">
+                                        <label for="insight-prompt">Ask about your data:</label>
+                                        <textarea id="insight-prompt" rows="3" class="w-full p-2 border border-gray-300 rounded" placeholder="E.g., What are the key trends in this dataset?"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        <i class="fas fa-magic mr-1"></i> Generate Insights
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <div id="insights-results" class="insights-results">
+                                <!-- Insights will be loaded dynamically -->
+                                <p class="text-center text-gray-500 py-10">
+                                    <i class="fas fa-lightbulb opacity-50 text-2xl mb-2"></i><br>
+                                    Ask a question to generate insights about your data
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Footer -->
+        <footer class="bg-white mt-auto py-3 border-t border-gray-200">
+            <div class="max-w-7xl mx-auto px-4">
+                <p class="text-center text-sm text-gray-500">Data Analytics Dashboard v1.0 &copy; {{ current_year }}</p>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Scatter Plot Dialog -->
+    <div class="modal hidden" id="scatter-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Scatter Plot</h3>
+                <button class="modal-close" id="close-scatter-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="space-y-4">
+                    <div class="form-group">
+                        <label for="x-axis">X Axis:</label>
+                        <select id="x-axis" class="w-full p-2 border border-gray-300 rounded"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="y-axis">Y Axis:</label>
+                        <select id="y-axis" class="w-full p-2 border border-gray-300 rounded"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="color-by">Color By (optional):</label>
+                        <select id="color-by" class="w-full p-2 border border-gray-300 rounded">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-scatter-btn" class="btn btn-secondary">Cancel</button>
+                <button id="generate-scatter-btn" class="btn btn-primary">Generate</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loading-overlay">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p id="loading-text" class="text-lg text-gray-800">Loading...</p>
+        </div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html> 

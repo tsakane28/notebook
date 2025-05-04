@@ -445,9 +445,12 @@ function createNumericChartInstance(ctx, type, labels, values, colors, column) {
     
     // Add scales for bar and line charts
     if (type === 'bar' || type === 'line') {
+        // Calculate min value from the data to determine if we start at zero
+        const minValue = Math.min(...values);
+        
         config.options.scales = {
             x: {
-                beginAtZero: stat.min > 0 ? false : true,
+                beginAtZero: minValue > 0 ? false : true,
                 title: {
                     display: true,
                     text: type === 'bar' ? 'Value' : ''
@@ -979,9 +982,12 @@ function initializeEmailChart() {
                 chartInstance.destroy();
             }
             
+            // Store the selected chart type
+            const chartType = this.value;
+            
             // Create new chart with selected type
             chartInstance = new Chart(canvas, {
-                type: this.value,
+                type: chartType,
                 data: {
                     labels: data.labels,
                     datasets: [{
@@ -996,8 +1002,8 @@ function initializeEmailChart() {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            position: this.value === 'bar' ? 'top' : 'right',
-                            display: this.value !== 'bar'
+                            position: chartType === 'bar' ? 'top' : 'right',
+                            display: chartType !== 'bar'
                         },
                         tooltip: {
                             callbacks: {
@@ -1005,14 +1011,14 @@ function initializeEmailChart() {
                                     const value = context.raw;
                                     const total = data.values.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return this.value === 'bar' 
-                                        ? `Usage: ${value}` 
+                                    return chartType === 'bar' 
+                                        ? `Count: ${value}` 
                                         : `${context.label}: ${value} (${percentage}%)`;
-                                }.bind(this)
+                                }
                             }
                         }
                     },
-                    scales: this.value === 'bar' ? {
+                    scales: chartType === 'bar' ? {
                         y: {
                             beginAtZero: true
                         }
@@ -1097,11 +1103,12 @@ function initializeAIToolsChart() {
                 chartInstance.destroy();
             }
             
-            // Create new chart with selected type
-            const isPolar = this.value === 'polarArea';
+            // Store the selected chart type
+            const chartType = this.value;
             
+            // Create new chart with selected type
             chartInstance = new Chart(canvas, {
-                type: this.value,
+                type: chartType,
                 data: {
                     labels: data.labels,
                     datasets: [{
@@ -1118,7 +1125,7 @@ function initializeAIToolsChart() {
                     plugins: {
                         legend: {
                             position: 'right',
-                            display: this.value !== 'bar'
+                            display: chartType !== 'bar'
                         },
                         tooltip: {
                             callbacks: {
@@ -1126,14 +1133,14 @@ function initializeAIToolsChart() {
                                     const value = context.raw;
                                     const total = data.values.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return this.value === 'bar' 
+                                    return chartType === 'bar' 
                                         ? `Usage: ${value}` 
                                         : `${context.label}: ${value} (${percentage}%)`;
-                                }.bind(this)
+                                }
                             }
                         }
                     },
-                    scales: this.value === 'bar' ? {
+                    scales: chartType === 'bar' ? {
                         y: {
                             beginAtZero: true,
                             title: {
@@ -1215,9 +1222,12 @@ function initializeChallengesChart() {
                 chartInstance.destroy();
             }
             
+            // Store the selected chart type
+            const chartType = this.value;
+            
             // Create new chart with selected type
             chartInstance = new Chart(canvas, {
-                type: this.value,
+                type: chartType,
                 data: {
                     labels: data.labels,
                     datasets: [{
@@ -1234,7 +1244,7 @@ function initializeChallengesChart() {
                     plugins: {
                         legend: {
                             position: 'right',
-                            display: this.value !== 'bar'
+                            display: chartType !== 'bar'
                         },
                         tooltip: {
                             callbacks: {
@@ -1242,14 +1252,14 @@ function initializeChallengesChart() {
                                     const value = context.raw;
                                     const total = data.values.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return this.value === 'bar' 
+                                    return chartType === 'bar' 
                                         ? `Frequency: ${value}` 
                                         : `${context.label}: ${value} (${percentage}%)`;
-                                }.bind(this)
+                                }
                             }
                         }
                     },
-                    scales: this.value === 'bar' ? {
+                    scales: chartType === 'bar' ? {
                         y: {
                             beginAtZero: true,
                             title: {
@@ -1331,7 +1341,7 @@ function initializeHelpfulToolsChart() {
                 chartInstance.destroy();
             }
             
-            // Special handling for horizontal bar
+            // Store the selected chart type and handle horizontal bar
             const isHorizontalBar = this.value === 'horizontalBar';
             const chartType = isHorizontalBar ? 'bar' : this.value;
             

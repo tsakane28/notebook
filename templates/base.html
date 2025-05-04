@@ -5,71 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Data Analytics Dashboard{% endblock %}</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    
+    <!-- Tailwind Config -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        primary: {
-                            DEFAULT: '#1a56db',
-                            dark: '#0e3fa9',
-                            light: '#d3e1fc'
-                        },
-                        secondary: '#6b7280',
-                        success: {
-                            DEFAULT: '#057a55',
-                            dark: '#046c4e',
-                            light: '#def7ec'
-                        },
-                        warning: {
-                            DEFAULT: '#c27803',
-                            light: '#fef3c7'
-                        },
-                        danger: {
-                            DEFAULT: '#e02424',
-                            light: '#fde8e8'
-                        },
-                        light: '#f3f4f6',
-                        dark: '#1f2937'
+                        primary: '#0078d4',
+                        'primary-dark': '#005a9e',
+                        'primary-light': '#d0e7f8',
+                        secondary: '#2b88d8',
+                        success: '#107c10',
+                        warning: '#d83b01',
+                        danger: '#e81123',
+                    },
+                    fontFamily: {
+                        sans: ['"Segoe UI"', 'sans-serif']
                     }
                 }
             }
-        };
+        }
     </script>
-    
-    <!-- Chart.js for visualizations -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     
     {% block head %}{% endblock %}
 </head>
-<body class="bg-light min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
     <!-- Header -->
     <header class="bg-primary text-white">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <div>
-                <a href="/" class="text-xl font-bold">AI Survey Dashboard</a>
-                <p class="text-sm opacity-75">Data Analytics for Education Surveys</p>
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-semibold">
+                    <a href="/" class="flex items-center">
+                        <i class="fas fa-chart-line mr-2"></i>
+                        <span>Data Analytics Dashboard</span>
+                    </a>
+                </h1>
+                <nav>
+                    <ul class="flex space-x-6">
+                        <li><a href="/" class="hover:text-white/80 transition-colors {% block nav_home %}{% endblock %}">
+                            <i class="fas fa-home mr-1"></i> Home
+                        </a></li>
+                        <li><a href="/dashboard" class="hover:text-white/80 transition-colors {% block nav_dashboard %}{% endblock %}">
+                            <i class="fas fa-tachometer-alt mr-1"></i> Dashboard
+                        </a></li>
+                        <li><a href="/upload" class="hover:text-white/80 transition-colors {% block nav_upload %}{% endblock %}">
+                            <i class="fas fa-upload mr-1"></i> Upload
+                        </a></li>
+                    </ul>
+                </nav>
             </div>
-            <nav>
-                <ul class="flex space-x-6">
-                    <li><a href="/" class="hover:text-white/80 transition-colors {% block nav_home %}{% endblock %}">Home</a></li>
-                    <li><a href="/upload" class="hover:text-white/80 transition-colors {% block nav_upload %}{% endblock %}">Upload</a></li>
-                    <li><a href="#" class="hover:text-white/80 transition-colors {% block nav_dashboard %}{% endblock %}">Dashboard</a></li>
-                </ul>
-            </nav>
         </div>
     </header>
 
@@ -79,21 +78,21 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark text-white py-6">
+    <footer class="bg-gray-800 text-white py-4 mt-auto">
         <div class="container mx-auto px-4">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="mb-4 md:mb-0">
-                    <p class="text-sm">&copy; {{ current_year }} AI Survey Dashboard</p>
+                    <p>&copy; 2023 Data Analytics Dashboard. All rights reserved.</p>
                 </div>
                 <div class="flex space-x-4">
                     <a href="#" class="text-white hover:text-primary-light transition-colors">
                         <i class="fab fa-github"></i>
                     </a>
                     <a href="#" class="text-white hover:text-primary-light transition-colors">
-                        <i class="fab fa-twitter"></i>
+                        <i class="fab fa-linkedin"></i>
                     </a>
                     <a href="#" class="text-white hover:text-primary-light transition-colors">
-                        <i class="fab fa-linkedin"></i>
+                        <i class="fab fa-twitter"></i>
                     </a>
                 </div>
             </div>
@@ -101,14 +100,14 @@
     </footer>
 
     <!-- Loading Overlay -->
-    <div id="loading-overlay" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
-        <div class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full text-center">
-            <div class="loading-spinner mx-auto mb-4"></div>
-            <p id="loading-text" class="text-lg font-medium text-gray-700">Loading...</p>
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg flex flex-col items-center">
+            <div class="loading-spinner"></div>
+            <p id="loading-text" class="mt-4 text-gray-700">Loading...</p>
         </div>
     </div>
-
-    <!-- Core JS -->
+    
+    <!-- Dashboard specific JavaScript -->
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     
     {% block scripts %}{% endblock %}

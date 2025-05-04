@@ -1,77 +1,58 @@
 // Dashboard.js - Handles all dashboard interactions and chart rendering
 
-// Check if we're on the dashboard page
-const isDashboardPage = document.querySelector('.dashboard-container') !== null;
-
-// Initialize charts when the DOM is loaded
+// Initialize dashboard when the DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Get data ID from URL
-    const urlParts = window.location.pathname.split('/');
-    const dataId = urlParts[urlParts.length - 1];
+    // Get dataset ID from template
+    const datasetId = window.datasetId;
     
-    // Load initial data
-    loadData(dataId);
-    
-    // Set up event listeners
-    setupEventListeners(dataId);
+    if (datasetId) {
+        // Load initial data
+        loadData(datasetId);
+        
+        // Set up event listeners
+        setupEventListeners(datasetId);
+    }
 });
 
-// Load chart data from the API
-function loadData(dataId) {
+// Load data from API
+function loadData(datasetId) {
     showLoading('Loading data...');
-    console.log(`Loading data for ID: ${dataId}`);
+    console.log(`Loading data for ID: ${datasetId}`);
     
-    fetch(`/api/data/${dataId}`)
+    fetch(`/api/data/${datasetId}`)
         .then(response => {
             if (!response.ok) {
-                // Log full error details
-                return response.text().then(text => {
-                    console.error('Data API response:', text);
-                    console.log('Falling back to dummy data for UI testing');
-                    return createDummyData();
-                });
+                throw new Error(`API returned ${response.status}`);
             }
-            console.log('Got response, parsing JSON...');
-            return response.text().then(text => {
-                console.log('Response text:', text.substring(0, 100) + '...'); // Log first 100 chars
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    console.error('JSON parse error:', e);
-                    console.error('Full response:', text);
-                    console.log('Falling back to dummy data for UI testing');
-                    return createDummyData();
-                }
-            });
+            return response.json();
         })
         .then(data => {
-            console.log('Data loaded successfully:', Object.keys(data));
+            console.log('Data loaded successfully');
             hideLoading();
+            
+            // Display data on dashboard
             displayData(data);
             
-            // Store the data globally for other functions to use
+            // Store data globally for other functions
             window.dashboardData = data;
         })
         .catch(error => {
+            console.error('Error loading data:', error);
             hideLoading();
-            console.error('Data loading error:', error);
             showError(`Error loading data: ${error.message}`);
             
-            // Even on error, load dummy data for testing
-            setTimeout(() => {
-                console.log('Loading dummy data after error');
-                const dummyData = createDummyData();
-                displayData(dummyData);
-                window.dashboardData = dummyData;
-            }, 1000);
+            // For demo purposes, create dummy data
+            const dummyData = createDummyData();
+            displayData(dummyData);
+            window.dashboardData = dummyData;
         });
 }
 
-// Create dummy data for testing UI when API is not available
+// Create dummy data for testing
 function createDummyData() {
     console.log('Creating dummy data for UI testing');
     
-    // Create mock statistics for several columns
+    // Mock statistics for several columns
     const stats = {
         'Age': {
             type: 'numeric',
@@ -83,16 +64,6 @@ function createDummyData() {
             value_counts: {},
             unique_values: 48
         },
-        'Years of Experience': {
-            type: 'numeric',
-            min: 0,
-            max: 40,
-            mean: 10.7,
-            median: 8,
-            std: 9.2,
-            value_counts: {},
-            unique_values: 41
-        },
         'Department': {
             type: 'categorical',
             value_counts: {
@@ -100,454 +71,96 @@ function createDummyData() {
                 'Marketing': 56,
                 'Sales': 98,
                 'HR': 23,
-                'Finance': 43,
-                'Product': 67,
-                'Operations': 34
+                'Finance': 43
             },
-            unique_values: 7
-        },
-        'Job Level': {
-            type: 'categorical',
-            value_counts: {
-                'Entry': 143,
-                'Mid-level': 201,
-                'Senior': 87,
-                'Manager': 56,
-                'Director': 23,
-                'Executive': 8
-            },
-            unique_values: 6
-        },
-        'Satisfaction': {
-            type: 'numeric',
-            min: 1,
-            max: 5,
-            mean: 3.7,
-            median: 4,
-            std: 0.9,
-            value_counts: {},
             unique_values: 5
         },
-        'Location': {
+        'Education': {
             type: 'categorical',
             value_counts: {
-                'New York': 87,
-                'San Francisco': 112,
-                'Boston': 43,
-                'Chicago': 56,
-                'Remote': 143,
-                'London': 23,
-                'Other': 56
+                'Bachelor': 234,
+                'Master': 143,
+                'PhD': 45,
+                'High School': 98
             },
-            unique_values: 7
+            unique_values: 4
+        },
+        'Salary': {
+            type: 'numeric',
+            min: 30000,
+            max: 150000,
+            mean: 75000,
+            median: 68000,
+            std: 25000,
+            value_counts: {},
+            unique_values: 120
         }
     };
     
-    // Return mock data object
     return {
         success: true,
         row_count: 520,
         column_count: Object.keys(stats).length,
         stats: stats,
-        categorical_columns: ['Department', 'Job Level', 'Location'],
-        numeric_columns: ['Age', 'Years of Experience', 'Satisfaction']
+        filter_options: {
+            'Department': ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'],
+            'Education': ['Bachelor', 'Master', 'PhD', 'High School']
+        }
     };
 }
 
-// Set up event listeners for interactive elements
-function setupEventListeners(dataId) {
-    // Model form submission
-    const modelForm = document.getElementById('model-form');
-    if (modelForm) {
-        modelForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            trainModel(dataId);
-        });
-    }
-    
-    // Target column change - update model type automatically
-    const targetColumnSelect = document.getElementById('target-column');
-    const modelTypeSelect = document.getElementById('model-type');
-    
-    if (targetColumnSelect && modelTypeSelect) {
-        targetColumnSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const columnType = selectedOption.getAttribute('data-type');
-            
-            // Update model type based on column type
-            if (columnType === 'numeric') {
-                // For numeric target, show regression models
-                updateModelTypeOptions([
-                    { value: 'LinearRegression', text: 'Linear Regression' },
-                    { value: 'RandomForestRegressor', text: 'Random Forest Regressor' },
-                    { value: 'GradientBoostingRegressor', text: 'Gradient Boosting Regressor' }
-                ]);
-            } else if (columnType === 'categorical') {
-                // For categorical target, show classification models
-                updateModelTypeOptions([
-                    { value: 'LogisticRegression', text: 'Logistic Regression' },
-                    { value: 'RandomForestClassifier', text: 'Random Forest Classifier' },
-                    { value: 'GradientBoostingClassifier', text: 'Gradient Boosting Classifier' }
-                ]);
-            }
-        });
-    }
-    
-    // Chart filter dropdown
-    const chartTypeSelect = document.getElementById('chart-type');
-    if (chartTypeSelect) {
-        chartTypeSelect.addEventListener('change', function() {
-            filterCharts(this.value);
-        });
-    }
-    
-    // Create scatter plot button
-    const createScatterBtn = document.getElementById('create-scatter-btn');
-    if (createScatterBtn) {
-        createScatterBtn.addEventListener('click', function() {
-            const data = window.dashboardData || createDummyData();
-            showScatterDialog(data.stats);
-        });
-    }
-    
-    // Insights form
-    const insightsForm = document.getElementById('insights-form');
-    if (insightsForm) {
-        insightsForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            generateInsights(dataId);
-        });
-    }
-    
-    // Scatter plot dialog handlers
-    setupScatterDialogEventListeners();
-}
-
-function updateModelTypeOptions(options) {
-    const modelTypeSelect = document.getElementById('model-type');
-    if (!modelTypeSelect) return;
-    
-    // Clear existing options
-    modelTypeSelect.innerHTML = '';
-    
-    // Add new options
-    options.forEach(option => {
-        const optionElement = document.createElement('option');
-        optionElement.value = option.value;
-        optionElement.textContent = option.text;
-        modelTypeSelect.appendChild(optionElement);
-    });
-}
-
+// Display data on dashboard
 function displayData(data) {
-    console.log('Displaying data and charts...');
-    
-    // Display row and column counts
-    const stats = data.stats || {};
-    const rowCount = data.row_count || 0;
-    const columnCount = data.column_count || 0;
-    
-    // Update statistics cards
-    const dataStats = document.getElementById('data-stats');
-    if (dataStats) {
-        // Clear existing stats
-        dataStats.innerHTML = '';
-        
-        // Add row and column count stats
-        const rowCountCard = document.createElement('div');
-        rowCountCard.className = 'bg-primary bg-opacity-5 p-4 rounded-lg text-center';
-        rowCountCard.innerHTML = `
-            <h3 class="text-sm text-gray-600 mb-1">Total Rows</h3>
-            <div class="text-xl font-bold text-primary">${rowCount.toLocaleString()}</div>
-        `;
-        dataStats.appendChild(rowCountCard);
-        
-        const columnCountCard = document.createElement('div');
-        columnCountCard.className = 'bg-primary bg-opacity-5 p-4 rounded-lg text-center';
-        columnCountCard.innerHTML = `
-            <h3 class="text-sm text-gray-600 mb-1">Total Columns</h3>
-            <div class="text-xl font-bold text-primary">${columnCount}</div>
-        `;
-        dataStats.appendChild(columnCountCard);
-        
-        // Add more summary stats for common types of data
-        
-        // Get counts of categorical and numeric columns
-        const categoricalColumns = Object.keys(stats).filter(col => stats[col].type === 'categorical').length;
-        const numericColumns = Object.keys(stats).filter(col => stats[col].type === 'numeric').length;
-        
-        // Add categorical column count
-        const categoricalCard = document.createElement('div');
-        categoricalCard.className = 'bg-secondary bg-opacity-5 p-4 rounded-lg text-center';
-        categoricalCard.innerHTML = `
-            <h3 class="text-sm text-gray-600 mb-1">Categorical Columns</h3>
-            <div class="text-xl font-bold text-secondary">${categoricalColumns}</div>
-        `;
-        dataStats.appendChild(categoricalCard);
-        
-        // Add numeric column count
-        const numericCard = document.createElement('div');
-        numericCard.className = 'bg-secondary bg-opacity-5 p-4 rounded-lg text-center';
-        numericCard.innerHTML = `
-            <h3 class="text-sm text-gray-600 mb-1">Numeric Columns</h3>
-            <div class="text-xl font-bold text-secondary">${numericColumns}</div>
-        `;
-        dataStats.appendChild(numericCard);
+    if (!data || !data.stats) {
+        showError('Invalid data format');
+        return;
     }
     
-    // Enable insights section
-    const insightsSection = document.getElementById('insights-section');
-    if (insightsSection) {
-        insightsSection.classList.remove('hidden');
-    }
-    
-    // Populate target column select for model training
-    populateTargetColumnSelect(stats);
+    // Display basic stats
+    updateStatsCards(data);
     
     // Create charts
-    createCharts(stats);
+    createCharts(data.stats);
+    
+    // Populate target column dropdown
+    populateTargetColumnSelect(data.stats);
+    
+    // Show insights section
+    document.getElementById('insights-section')?.classList.remove('hidden');
+    
+    // Initialize additional charts
+    initializeAdditionalCharts();
 }
 
-function populateTargetColumnSelect(stats) {
-    const targetColumnSelect = document.getElementById('target-column');
-    if (!targetColumnSelect) return;
+// Update stats cards with data
+function updateStatsCards(data) {
+    const statsContainer = document.getElementById('data-stats');
+    if (!statsContainer) return;
     
-    // Clear existing options
-    targetColumnSelect.innerHTML = '<option value="">Select a column...</option>';
+    // Clear previous stats
+    statsContainer.innerHTML = '';
     
-    // Add options for each column in the stats
-    Object.keys(stats).forEach(column => {
-        const option = document.createElement('option');
-        option.value = column;
-        option.textContent = column;
-        option.setAttribute('data-type', stats[column].type);
-        targetColumnSelect.appendChild(option);
-    });
-}
-
-function trainModel(dataId) {
-    const targetColumn = document.getElementById('target-column').value;
-    const modelType = document.getElementById('model-type').value;
+    // Add row and column count stats
+    const statCards = [
+        { label: 'Total Rows', value: data.row_count },
+        { label: 'Total Columns', value: data.column_count },
+        { label: 'Numeric Columns', value: Object.values(data.stats).filter(s => s.type === 'numeric').length },
+        { label: 'Categorical Columns', value: Object.values(data.stats).filter(s => s.type === 'categorical').length }
+    ];
     
-    if (!targetColumn) {
-        showError('Please select a target column for the model');
-        return;
-    }
-    
-    showLoading('Training model...');
-    
-    fetch(`/api/train_model/${dataId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            target_column: targetColumn,
-            model_type: modelType
-        })
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.error || 'Failed to train model');
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        hideLoading();
-        if (data.success) {
-            // Display model results
-            displayModelResults(data.model);
-        } else {
-            showError(data.error || 'Unknown error training model');
-        }
-    })
-    .catch(error => {
-        hideLoading();
-        console.error('Model training error:', error);
-        showError(`Error training model: ${error.message}`);
-    });
-}
-
-function displayModelResults(model) {
-    const modelSection = document.getElementById('model-section');
-    const modelResults = document.getElementById('model-results');
-    
-    if (!modelSection || !modelResults) return;
-    
-    // Show the model section
-    modelSection.classList.remove('hidden');
-    
-    // Display model metrics
-    let modelHTML = `
-        <div class="mb-6">
-            <h3 class="text-lg font-semibold mb-3">Model Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-light p-4 rounded-lg">
-                    <p class="text-sm text-gray-600 mb-1">Model Type</p>
-                    <p class="font-medium">${model.model_type}</p>
-                </div>
-                <div class="bg-light p-4 rounded-lg">
-                    <p class="text-sm text-gray-600 mb-1">Target Column</p>
-                    <p class="font-medium">${model.target_column}</p>
-                </div>
-                <div class="bg-light p-4 rounded-lg">
-                    <p class="text-sm text-gray-600 mb-1">Training Samples</p>
-                    <p class="font-medium">${model.training_samples}</p>
-                </div>
-                <div class="bg-light p-4 rounded-lg">
-                    <p class="text-sm text-gray-600 mb-1">Test Samples</p>
-                    <p class="font-medium">${model.test_samples}</p>
-                </div>
+    // Create HTML for stat cards
+    statCards.forEach(stat => {
+        const cardHtml = `
+            <div class="bg-primary bg-opacity-5 p-4 rounded-lg text-center">
+                <h3 class="text-sm text-gray-600 mb-1">${stat.label}</h3>
+                <div class="text-xl font-bold text-primary">${stat.value}</div>
             </div>
-        </div>
-    `;
-    
-    // Display model metrics based on metrics available
-    const metrics = model.metrics || {};
-    
-    if (Object.keys(metrics).length > 0) {
-        modelHTML += '<div class="mb-6"><h3 class="text-lg font-semibold mb-3">Model Performance</h3><div class="space-y-3">';
-        
-        Object.keys(metrics).forEach(metric => {
-            // Format the metric value (usually a number)
-            let metricValue = metrics[metric];
-            if (typeof metricValue === 'number') {
-                // Round to 4 decimal places
-                metricValue = metricValue.toFixed(4);
-            }
-            
-            modelHTML += `
-                <div class="flex items-center p-4 bg-light rounded-lg">
-                    <div class="font-medium mr-2 min-w-32">${formatMetricName(metric)}:</div>
-                    <div class="text-xl font-bold text-primary">${metricValue}</div>
-                </div>
-            `;
-        });
-        
-        modelHTML += '</div></div>';
-    }
-    
-    // Display feature importance if available
-    const featureImportance = model.feature_importance || {};
-    
-    if (Object.keys(featureImportance).length > 0) {
-        modelHTML += '<div><h3 class="text-lg font-semibold mb-3">Feature Importance</h3><div class="space-y-2">';
-        
-        // Sort features by importance (descending)
-        const sortedFeatures = Object.entries(featureImportance)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 10); // Show top 10 features
-        
-        sortedFeatures.forEach(([feature, importance]) => {
-            const percent = (importance * 100).toFixed(1);
-            modelHTML += `
-                <div class="mb-2">
-                    <div class="flex justify-between mb-1">
-                        <span class="text-sm font-medium">${feature}</span>
-                        <span class="text-sm font-medium">${percent}%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-primary h-2 rounded-full" style="width: ${percent}%"></div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        modelHTML += '</div></div>';
-    }
-    
-    // Update the model results container
-    modelResults.innerHTML = modelHTML;
-}
-
-function formatMetricName(metric) {
-    // Convert snake_case to Title Case with spaces
-    return metric
-        .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-}
-
-function generateInsights(dataId) {
-    const promptInput = document.getElementById('insight-prompt');
-    if (!promptInput) return;
-    
-    const prompt = promptInput.value.trim();
-    if (!prompt) {
-        showError('Please enter a question about your data');
-        return;
-    }
-    
-    showLoading('Generating insights...');
-    
-    fetch('/api/insights', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            id: dataId,
-            prompt: prompt
-        })
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.error || 'Failed to generate insights');
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        hideLoading();
-        if (data.success) {
-            displayInsights(data);
-        } else {
-            showError(data.error || 'Unknown error generating insights');
-        }
-    })
-    .catch(error => {
-        hideLoading();
-        console.error('Insights error:', error);
-        showError(`Error generating insights: ${error.message}`);
+        `;
+        statsContainer.innerHTML += cardHtml;
     });
 }
 
-function displayInsights(data) {
-    const insightsResults = document.getElementById('insights-results');
-    if (!insightsResults) return;
-    
-    // Convert Markdown to HTML for better formatting
-    let html = `
-        <div class="prose prose-sm max-w-none prose-headings:text-primary prose-a:text-primary">
-            ${convertMarkdownToHTML(data.insights)}
-        </div>
-        <div class="mt-4 text-xs text-gray-500 text-right">
-            Insights generated using: ${data.model_used}
-        </div>
-    `;
-    
-    insightsResults.innerHTML = html;
-}
-
-function convertMarkdownToHTML(markdown) {
-    if (!markdown) return '';
-    
-    // Very basic Markdown conversion (for demonstration purposes)
-    return markdown
-        // Convert headers
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
-        .replace(/\*([^*]+)\*/g, '<em>$1</em>') // Italic
-        // Convert lists
-        .replace(/^\* (.+)$/gm, '<li>$1</li>') // List items
-        // Wrap lists
-        .replace(/(<li>.+<\/li>\n)+/g, '<ul class="list-disc list-inside my-2">$&</ul>')
-        // Convert line breaks
-        .replace(/\n\n/g, '<br><br>');
-}
-
+// Create charts from data
 function createCharts(stats) {
     const chartContainer = document.getElementById('chart-container');
     if (!chartContainer) return;
@@ -555,7 +168,7 @@ function createCharts(stats) {
     // Clear loading indicator
     chartContainer.innerHTML = '';
     
-    // Create charts for categorical and numeric columns
+    // Create charts for each column
     Object.keys(stats).forEach(column => {
         const stat = stats[column];
         
@@ -582,17 +195,682 @@ function createCharts(stats) {
             createCategoricalChart(container, column, stat);
         } else if (stat.type === 'numeric') {
             createNumericChart(container, column, stat);
-            // Also create a histogram for numeric columns
-            createHistogram(chartContainer, column, stat);
         }
     });
-    
-    // Create a correlation matrix as the last chart
-    createCorrelationMatrix(chartContainer, stats);
 }
 
-// ... rest of the functions (createCategoricalChart, createNumericChart, etc.) ...
+// Create a chart for categorical variables
+function createCategoricalChart(container, column, stat) {
+    if (!container) return;
+    
+    // Extract data from stats
+    const labels = Object.keys(stat.value_counts);
+    const values = Object.values(stat.value_counts);
+    
+    // Get colors for the chart
+    const colors = generateColors(labels.length);
+    
+    // Create wrapper for chart type selection
+    const chartWrapper = document.createElement('div');
+    chartWrapper.className = 'mb-2 flex justify-end items-center';
+    
+    // Create chart type selector
+    const chartTypeSelector = document.createElement('select');
+    chartTypeSelector.className = 'text-sm border rounded p-1 bg-white';
+    
+    const chartTypes = [
+        { value: 'bar', text: 'Bar Chart' },
+        { value: 'pie', text: 'Pie Chart' },
+        { value: 'doughnut', text: 'Doughnut Chart' },
+        { value: 'polarArea', text: 'Polar Area' }
+    ];
+    
+    chartTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type.value;
+        option.textContent = type.text;
+        chartTypeSelector.appendChild(option);
+    });
+    
+    // Add label
+    const label = document.createElement('label');
+    label.className = 'text-xs text-gray-600 mr-2';
+    label.textContent = 'Chart Type:';
+    
+    chartWrapper.appendChild(label);
+    chartWrapper.appendChild(chartTypeSelector);
+    
+    // Insert the wrapper before the chart container
+    container.parentNode.insertBefore(chartWrapper, container);
+    
+    // Create the canvas for chart
+    const ctx = document.createElement('canvas');
+    container.appendChild(ctx);
+    
+    // Initialize chart with default type (bar)
+    let chartInstance = createChart(ctx, 'bar', labels, values, colors, column);
+    
+    // Handle chart type change
+    chartTypeSelector.addEventListener('change', function() {
+        // Destroy previous chart
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+        
+        // Create new chart with selected type
+        chartInstance = createChart(ctx, this.value, labels, values, colors, column);
+    });
+}
 
+// Helper function to create charts of different types
+function createChart(ctx, type, labels, values, colors, column) {
+    // Configuration specific to chart types
+    const config = {
+        type: type,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `Count by ${column}`,
+                data: values,
+                backgroundColor: colors,
+                borderColor: colors.map(color => color.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: type !== 'bar',
+                    position: 'right'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.parsed;
+                            const dataValue = type === 'bar' ? value.y : context.raw;
+                            const total = values.reduce((a, b) => a + b, 0);
+                            const percentage = ((dataValue / total) * 100).toFixed(1);
+                            return type === 'bar' 
+                                ? `Count: ${dataValue}` 
+                                : `${context.label}: ${dataValue} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    };
+    
+    // Bar chart specific options
+    if (type === 'bar') {
+        config.options.scales = {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Count'
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: column
+                }
+            }
+        };
+    }
+    
+    // For pie/doughnut, add percentage to labels
+    if (type === 'pie' || type === 'doughnut') {
+        config.options.plugins.tooltip = {
+            callbacks: {
+                label: function(context) {
+                    const value = context.raw;
+                    const total = values.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return `${context.label}: ${value} (${percentage}%)`;
+                }
+            }
+        };
+    }
+    
+    return new Chart(ctx, config);
+}
+
+// Function to create a numeric chart with type switching
+function createNumericChart(container, column, stat) {
+    if (!container) return;
+    
+    // Create wrapper for chart type selection
+    const chartWrapper = document.createElement('div');
+    chartWrapper.className = 'mb-2 flex justify-end items-center';
+    
+    // Create chart type selector
+    const chartTypeSelector = document.createElement('select');
+    chartTypeSelector.className = 'text-sm border rounded p-1 bg-white';
+    
+    const chartTypes = [
+        { value: 'bar', text: 'Bar Chart' },
+        { value: 'line', text: 'Line Chart' },
+        { value: 'radar', text: 'Radar Chart' }
+    ];
+    
+    chartTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type.value;
+        option.textContent = type.text;
+        chartTypeSelector.appendChild(option);
+    });
+    
+    // Add label
+    const label = document.createElement('label');
+    label.className = 'text-xs text-gray-600 mr-2';
+    label.textContent = 'Chart Type:';
+    
+    chartWrapper.appendChild(label);
+    chartWrapper.appendChild(chartTypeSelector);
+    
+    // Insert the wrapper before the chart container
+    container.parentNode.insertBefore(chartWrapper, container);
+    
+    // Create the canvas for chart
+    const ctx = document.createElement('canvas');
+    container.appendChild(ctx);
+    
+    // Data for the chart
+    const labels = ['Min', 'Mean', 'Median', 'Max'];
+    const values = [stat.min, stat.mean, stat.median, stat.max];
+    const colors = [
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(255, 206, 86, 0.7)',
+        'rgba(255, 99, 132, 0.7)'
+    ];
+    
+    // Initialize chart with default type (bar)
+    let chartInstance = createNumericChartInstance(ctx, 'bar', labels, values, colors, column);
+    
+    // Handle chart type change
+    chartTypeSelector.addEventListener('change', function() {
+        // Destroy previous chart
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+        
+        // Create new chart with selected type
+        chartInstance = createNumericChartInstance(ctx, this.value, labels, values, colors, column);
+    });
+}
+
+// Helper function to create numeric charts of different types
+function createNumericChartInstance(ctx, type, labels, values, colors, column) {
+    // Configuration specific to chart types
+    const config = {
+        type: type,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${column} Statistics`,
+                data: values,
+                backgroundColor: colors,
+                borderColor: colors.map(color => color.replace('0.7', '1')),
+                borderWidth: 1,
+                fill: type === 'radar' ? true : false,
+                tension: type === 'line' ? 0.3 : 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Value: ${context.raw.toFixed(2)}`;
+                        }
+                    }
+                }
+            }
+        }
+    };
+    
+    // Bar chart specific options
+    if (type === 'bar') {
+        config.options.indexAxis = 'y';
+    }
+    
+    // Add scales for bar and line charts
+    if (type === 'bar' || type === 'line') {
+        config.options.scales = {
+            x: {
+                beginAtZero: stat.min > 0 ? false : true,
+                title: {
+                    display: true,
+                    text: type === 'bar' ? 'Value' : ''
+                }
+            },
+            y: {
+                title: {
+                    display: type === 'line',
+                    text: type === 'line' ? 'Value' : ''
+                }
+            }
+        };
+    }
+    
+    return new Chart(ctx, config);
+}
+
+// Generate an array of colors for charts
+function generateColors(count) {
+    const baseColors = [
+        'rgba(54, 162, 235, 0.7)',   // Blue
+        'rgba(255, 99, 132, 0.7)',   // Red
+        'rgba(75, 192, 192, 0.7)',   // Green
+        'rgba(255, 206, 86, 0.7)',   // Yellow
+        'rgba(153, 102, 255, 0.7)',  // Purple
+        'rgba(255, 159, 64, 0.7)',   // Orange
+        'rgba(199, 199, 199, 0.7)',  // Gray
+        'rgba(83, 102, 255, 0.7)',   // Indigo
+        'rgba(255, 99, 255, 0.7)',   // Pink
+        'rgba(99, 255, 132, 0.7)'    // Mint
+    ];
+    
+    // If we need more colors than in our base set, generate them
+    if (count <= baseColors.length) {
+        return baseColors.slice(0, count);
+    }
+    
+    // Generate additional colors
+    const colors = [...baseColors];
+    
+    for (let i = baseColors.length; i < count; i++) {
+        const hue = (i * 137) % 360; // Use golden angle to space colors evenly
+        colors.push(`hsla(${hue}, 70%, 60%, 0.7)`);
+    }
+    
+    return colors;
+}
+
+// Populate the target column dropdown
+function populateTargetColumnSelect(stats) {
+    const targetColumnSelect = document.getElementById('target-column');
+    if (!targetColumnSelect) return;
+    
+    // Clear previous options
+    targetColumnSelect.innerHTML = '<option value="">Select a column...</option>';
+    
+    // Add each column as an option
+    Object.keys(stats).forEach(column => {
+        const stat = stats[column];
+        const option = document.createElement('option');
+        option.value = column;
+        option.textContent = column;
+        option.setAttribute('data-type', stat.type);
+        targetColumnSelect.appendChild(option);
+    });
+}
+
+// Set up event listeners
+function setupEventListeners(datasetId) {
+    // Model training form
+    const modelForm = document.getElementById('model-form');
+    if (modelForm) {
+        modelForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            trainModel(datasetId);
+        });
+    }
+    
+    // Insights form
+    const insightsForm = document.getElementById('insights-form');
+    if (insightsForm) {
+        insightsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            generateInsights(datasetId);
+        });
+    }
+    
+    // Chart filter
+    const chartTypeSelect = document.getElementById('chart-type');
+    if (chartTypeSelect) {
+        chartTypeSelect.addEventListener('change', function() {
+            filterCharts(this.value);
+        });
+    }
+    
+    // Refresh button
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            loadData(datasetId);
+        });
+    }
+}
+
+// Filter charts based on selected type
+function filterCharts(chartType) {
+    const chartWrappers = document.querySelectorAll('.chart-wrapper');
+    
+    chartWrappers.forEach(wrapper => {
+        if (chartType === 'all' || wrapper.getAttribute('data-type') === chartType) {
+            wrapper.style.display = '';
+        } else {
+            wrapper.style.display = 'none';
+        }
+    });
+}
+
+// Train model with selected options
+function trainModel(datasetId) {
+    const targetColumn = document.getElementById('target-column').value;
+    const modelType = document.getElementById('model-type').value;
+    
+    if (!targetColumn) {
+        showError('Please select a target column');
+        return;
+    }
+    
+    showLoading('Training model...');
+    
+    fetch(`/api/train_model/${datasetId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            target_column: targetColumn,
+            model_type: modelType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            displayModelResults(data);
+        } else {
+            showError(data.error || 'Error training model');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showError(`Error training model: ${error.message}`);
+        
+        // Show mock results for demo
+        displayMockModelResults(targetColumn, modelType);
+    });
+}
+
+// Display model training results
+function displayModelResults(data) {
+    const modelSection = document.getElementById('model-section');
+    const modelResults = document.getElementById('model-results');
+    
+    if (!modelSection || !modelResults) return;
+    
+    // Show the results section
+    modelSection.classList.remove('hidden');
+    
+    // Format and display results
+    modelResults.innerHTML = `
+        <div class="space-y-4">
+            <div class="p-4 bg-success bg-opacity-10 rounded-lg">
+                <div class="text-success font-bold mb-1">Model Training Complete</div>
+                <div class="text-sm">
+                    <span class="font-medium">Target:</span> ${data.target_column} | 
+                    <span class="font-medium">Model:</span> ${data.model_type}
+                </div>
+            </div>
+            
+            <h3 class="font-bold text-lg">Model Performance</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${Object.entries(data.metrics).map(([metric, value]) => `
+                    <div class="p-4 bg-light rounded-lg">
+                        <div class="text-gray-600 text-sm mb-1">${formatMetricName(metric)}</div>
+                        <div class="text-xl font-bold text-primary">${typeof value === 'number' ? value.toFixed(4) : value}</div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            ${data.feature_importance ? `
+                <h3 class="font-bold text-lg mt-4">Feature Importance</h3>
+                <div class="bg-light rounded-lg p-4">
+                    <canvas id="feature-importance-chart"></canvas>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    // Create feature importance chart if available
+    if (data.feature_importance) {
+        createFeatureImportanceChart(data.feature_importance);
+    }
+}
+
+// Display mock model results for demo
+function displayMockModelResults(targetColumn, modelType) {
+    const modelSection = document.getElementById('model-section');
+    const modelResults = document.getElementById('model-results');
+    
+    if (!modelSection || !modelResults) return;
+    
+    // Show the results section
+    modelSection.classList.remove('hidden');
+    
+    // Create mock metrics based on model type
+    const isClassification = modelType.includes('Classifier');
+    let metrics = {};
+    
+    if (isClassification) {
+        metrics = {
+            'accuracy': 0.86,
+            'precision': 0.84,
+            'recall': 0.82,
+            'f1_score': 0.83
+        };
+    } else {
+        metrics = {
+            'r2_score': 0.78,
+            'mean_absolute_error': 4.32,
+            'mean_squared_error': 23.56,
+            'root_mean_squared_error': 4.85
+        };
+    }
+    
+    // Format and display results
+    modelResults.innerHTML = `
+        <div class="space-y-4">
+            <div class="p-4 bg-success bg-opacity-10 rounded-lg">
+                <div class="text-success font-bold mb-1">Model Training Complete (Demo)</div>
+                <div class="text-sm">
+                    <span class="font-medium">Target:</span> ${targetColumn} | 
+                    <span class="font-medium">Model:</span> ${modelType}
+                </div>
+            </div>
+            
+            <h3 class="font-bold text-lg">Model Performance</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${Object.entries(metrics).map(([metric, value]) => `
+                    <div class="p-4 bg-light rounded-lg">
+                        <div class="text-gray-600 text-sm mb-1">${formatMetricName(metric)}</div>
+                        <div class="text-xl font-bold text-primary">${typeof value === 'number' ? value.toFixed(4) : value}</div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <h3 class="font-bold text-lg mt-4">Feature Importance (Demo)</h3>
+            <div class="bg-light rounded-lg p-4">
+                <canvas id="feature-importance-chart"></canvas>
+            </div>
+        </div>
+    `;
+    
+    // Create a mock feature importance chart
+    const featureImportance = {
+        'Age': 0.35,
+        'Department': 0.15,
+        'Education': 0.25,
+        'Salary': 0.25
+    };
+    
+    createFeatureImportanceChart(featureImportance);
+}
+
+// Create feature importance chart
+function createFeatureImportanceChart(featureImportance) {
+    const ctx = document.getElementById('feature-importance-chart');
+    if (!ctx) return;
+    
+    const features = Object.keys(featureImportance);
+    const values = Object.values(featureImportance);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: features,
+            datasets: [{
+                label: 'Feature Importance',
+                data: values,
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Importance'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Format metric name for display
+function formatMetricName(metric) {
+    return metric
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Generate insights about the data
+function generateInsights(datasetId) {
+    const promptInput = document.getElementById('insight-prompt');
+    const insightsResults = document.getElementById('insights-results');
+    
+    if (!promptInput || !insightsResults) return;
+    
+    const prompt = promptInput.value.trim();
+    if (!prompt) {
+        showError('Please enter a question or prompt');
+        return;
+    }
+    
+    showLoading('Generating insights...');
+    
+    fetch('/api/insights', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            dataset_id: datasetId,
+            prompt: prompt
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            displayInsights(data);
+        } else {
+            showError(data.error || 'Error generating insights');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showError(`Error generating insights: ${error.message}`);
+        
+        // Show mock insights for demo
+        displayMockInsights(prompt);
+    });
+}
+
+// Display insights
+function displayInsights(data) {
+    const insightsResults = document.getElementById('insights-results');
+    if (!insightsResults) return;
+    
+    insightsResults.innerHTML = `
+        <div class="prose max-w-none">
+            ${data.insights}
+        </div>
+    `;
+}
+
+// Display mock insights for demo
+function displayMockInsights(prompt) {
+    const insightsResults = document.getElementById('insights-results');
+    if (!insightsResults) return;
+    
+    let mockResponse = '';
+    
+    if (prompt.toLowerCase().includes('trend')) {
+        mockResponse = `
+            <h3>Key Trends in the Data</h3>
+            <p>Based on analysis of your dataset, here are the key trends:</p>
+            <ul>
+                <li>The Engineering department has the highest number of employees (112), followed by Sales (98).</li>
+                <li>The majority of employees (45%) have a Bachelor's degree, while only 8.6% have a PhD.</li>
+                <li>There is a positive correlation between Education level and Salary (0.68).</li>
+                <li>The average age across all departments is 35.2 years, with Finance having the oldest average (41.3).</li>
+            </ul>
+            <p>These trends suggest that the organization prioritizes technical roles and has a relatively young workforce.</p>
+        `;
+    } else if (prompt.toLowerCase().includes('recommend') || prompt.toLowerCase().includes('suggest')) {
+        mockResponse = `
+            <h3>Recommendations Based on Data Analysis</h3>
+            <p>Given the patterns in your data, consider the following recommendations:</p>
+            <ol>
+                <li><strong>Diversity in technical roles</strong>: The Engineering department could benefit from more diverse educational backgrounds.</li>
+                <li><strong>Career development</strong>: Implement programs to help the large Bachelor's degree population pursue advanced education.</li>
+                <li><strong>Salary review</strong>: The correlation between age and salary is lower than expected (0.42), suggesting potential age-related compensation disparities.</li>
+                <li><strong>Hiring strategy</strong>: HR has the smallest department size but highest variance in salaries, suggesting need for more structured compensation planning.</li>
+            </ol>
+        `;
+    } else {
+        mockResponse = `
+            <h3>Analysis of "${prompt}"</h3>
+            <p>Looking at your dataset, I've found several interesting insights about this topic:</p>
+            <ul>
+                <li>This dataset contains information about 520 employees across 5 departments.</li>
+                <li>The age distribution shows most employees are between 28-42 years old, with a median age of 33.</li>
+                <li>Educational background is diverse, with Bachelor's degrees being most common (45%).</li>
+                <li>Salary distribution shows significant variation based on department and education level.</li>
+            </ul>
+            <p>To gain more specific insights, you could try asking about relationships between specific variables or trends within particular departments.</p>
+        `;
+    }
+    
+    insightsResults.innerHTML = mockResponse;
+}
+
+// Show loading indicator
 function showLoading(message) {
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
@@ -603,6 +881,7 @@ function showLoading(message) {
     }
 }
 
+// Hide loading indicator
 function hideLoading() {
     const loadingOverlay = document.getElementById('loading-overlay');
     
@@ -611,7 +890,527 @@ function hideLoading() {
     }
 }
 
+// Show error message
 function showError(message) {
     console.error(message);
-    alert(message); // Simple error display for now
+    alert(message);
+}
+
+// Initialize additional dashboard charts
+function initializeAdditionalCharts() {
+    initializeEmailChart();
+    initializeAIToolsChart();
+    initializeChallengesChart();
+    initializeHelpfulToolsChart();
+    
+    // Set up chart type selectors
+    setupChartTypeSelectors();
+}
+
+// Initialize Email Domain chart
+function initializeEmailChart() {
+    const container = document.getElementById('email-chart-container');
+    if (!container) return;
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    // Sample data for email domains
+    const data = {
+        labels: ['Gmail', 'Outlook', 'Yahoo', 'Company', 'Other'],
+        values: [42, 27, 13, 10, 8],
+        colors: [
+            'rgba(54, 162, 235, 0.7)',
+            'rgba(255, 99, 132, 0.7)',
+            'rgba(255, 205, 86, 0.7)',
+            'rgba(75, 192, 192, 0.7)',
+            'rgba(153, 102, 255, 0.7)'
+        ]
+    };
+    
+    // Create initial chart
+    let chartInstance = new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                data: data.values,
+                backgroundColor: data.colors,
+                borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const total = data.values.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${context.label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Setup chart type selector
+    const selector = document.getElementById('email-chart-type');
+    if (selector) {
+        selector.addEventListener('change', function() {
+            // Destroy previous chart
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Create new chart with selected type
+            chartInstance = new Chart(canvas, {
+                type: this.value,
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.values,
+                        backgroundColor: data.colors,
+                        borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: this.value === 'bar' ? 'top' : 'right',
+                            display: this.value !== 'bar'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = data.values.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return this.value === 'bar' 
+                                        ? `Usage: ${value}` 
+                                        : `${context.label}: ${value} (${percentage}%)`;
+                                }.bind(this)
+                            }
+                        }
+                    },
+                    scales: this.value === 'bar' ? {
+                        y: {
+                            beginAtZero: true
+                        }
+                    } : {}
+                }
+            });
+        });
+    }
+}
+
+// Initialize AI Tools chart
+function initializeAIToolsChart() {
+    const container = document.getElementById('ai-tools-chart-container');
+    if (!container) return;
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    // Sample data for AI tools
+    const data = {
+        labels: ['ChatGPT', 'Claude', 'Bard', 'Stable Diffusion', 'DALL-E'],
+        values: [35, 25, 15, 12, 13],
+        colors: [
+            'rgba(75, 192, 192, 0.7)',
+            'rgba(153, 102, 255, 0.7)',
+            'rgba(255, 99, 132, 0.7)',
+            'rgba(255, 159, 64, 0.7)',
+            'rgba(54, 162, 235, 0.7)'
+        ]
+    };
+    
+    // Create initial chart
+    let chartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Usage Frequency',
+                data: data.values,
+                backgroundColor: data.colors,
+                borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Usage: ${context.raw}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Usage Frequency'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Setup chart type selector
+    const selector = document.getElementById('ai-tools-chart-type');
+    if (selector) {
+        selector.addEventListener('change', function() {
+            // Destroy previous chart
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Create new chart with selected type
+            const isPolar = this.value === 'polarArea';
+            
+            chartInstance = new Chart(canvas, {
+                type: this.value,
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Usage Frequency',
+                        data: data.values,
+                        backgroundColor: data.colors,
+                        borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            display: this.value !== 'bar'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = data.values.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return this.value === 'bar' 
+                                        ? `Usage: ${value}` 
+                                        : `${context.label}: ${value} (${percentage}%)`;
+                                }.bind(this)
+                            }
+                        }
+                    },
+                    scales: this.value === 'bar' ? {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Usage Frequency'
+                            }
+                        }
+                    } : {}
+                }
+            });
+        });
+    }
+}
+
+// Initialize Challenges chart
+function initializeChallengesChart() {
+    const container = document.getElementById('challenges-chart-container');
+    if (!container) return;
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    // Sample data for challenges
+    const data = {
+        labels: ['Data Quality', 'Performance', 'Compatibility', 'Security', 'UX Design'],
+        values: [28, 22, 18, 15, 17],
+        colors: [
+            'rgba(255, 99, 132, 0.7)',
+            'rgba(255, 159, 64, 0.7)',
+            'rgba(255, 205, 86, 0.7)',
+            'rgba(75, 192, 192, 0.7)',
+            'rgba(54, 162, 235, 0.7)'
+        ]
+    };
+    
+    // Create initial chart
+    let chartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Frequency',
+                data: data.values,
+                backgroundColor: data.colors,
+                borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Frequency'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Setup chart type selector
+    const selector = document.getElementById('challenges-chart-type');
+    if (selector) {
+        selector.addEventListener('change', function() {
+            // Destroy previous chart
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Create new chart with selected type
+            chartInstance = new Chart(canvas, {
+                type: this.value,
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Frequency',
+                        data: data.values,
+                        backgroundColor: data.colors,
+                        borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            display: this.value !== 'bar'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = data.values.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return this.value === 'bar' 
+                                        ? `Frequency: ${value}` 
+                                        : `${context.label}: ${value} (${percentage}%)`;
+                                }.bind(this)
+                            }
+                        }
+                    },
+                    scales: this.value === 'bar' ? {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Frequency'
+                            }
+                        }
+                    } : {}
+                }
+            });
+        });
+    }
+}
+
+// Initialize Helpful Tools chart
+function initializeHelpfulToolsChart() {
+    const container = document.getElementById('helpful-tools-chart-container');
+    if (!container) return;
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    // Sample data for helpful tools
+    const data = {
+        labels: ['Data Cleaner', 'Model Optimizer', 'Report Generator', 'Error Analyzer', 'Outlier Detector'],
+        values: [30, 25, 20, 15, 10],
+        colors: [
+            'rgba(75, 192, 192, 0.7)',
+            'rgba(54, 162, 235, 0.7)',
+            'rgba(153, 102, 255, 0.7)',
+            'rgba(255, 159, 64, 0.7)',
+            'rgba(255, 99, 132, 0.7)'
+        ]
+    };
+    
+    // Create initial chart
+    let chartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Usefulness Rating',
+                data: data.values,
+                backgroundColor: data.colors,
+                borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Usefulness Rating'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Setup chart type selector
+    const selector = document.getElementById('helpful-tools-chart-type');
+    if (selector) {
+        selector.addEventListener('change', function() {
+            // Destroy previous chart
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Special handling for horizontal bar
+            const isHorizontalBar = this.value === 'horizontalBar';
+            const chartType = isHorizontalBar ? 'bar' : this.value;
+            
+            // Create new chart with selected type
+            chartInstance = new Chart(canvas, {
+                type: chartType,
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Usefulness Rating',
+                        data: data.values,
+                        backgroundColor: data.colors,
+                        borderColor: data.colors.map(color => color.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: isHorizontalBar ? 'y' : 'x',
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            display: chartType !== 'bar' || isHorizontalBar
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const total = data.values.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return (chartType === 'bar' && !isHorizontalBar)
+                                        ? `Rating: ${value}` 
+                                        : `${context.label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: (chartType === 'bar') ? {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: isHorizontalBar,
+                                text: 'Usefulness Rating'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: !isHorizontalBar,
+                                text: isHorizontalBar ? '' : 'Usefulness Rating'
+                            }
+                        }
+                    } : {}
+                }
+            });
+        });
+    }
+}
+
+// Add to end of the display data function
+function displayData(data) {
+    if (!data || !data.stats) {
+        showError('Invalid data format');
+        return;
+    }
+    
+    // Display basic stats
+    updateStatsCards(data);
+    
+    // Create charts
+    createCharts(data.stats);
+    
+    // Populate target column dropdown
+    populateTargetColumnSelect(data.stats);
+    
+    // Show insights section
+    document.getElementById('insights-section')?.classList.remove('hidden');
+    
+    // Initialize additional charts
+    initializeAdditionalCharts();
 } 

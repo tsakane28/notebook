@@ -553,6 +553,9 @@ function setupEventListeners(datasetId) {
             loadData(datasetId);
         });
     }
+    
+    // Setup scatter plot dialog
+    setupScatterPlotDialog(datasetId);
 }
 
 // Filter charts based on selected type
@@ -1423,4 +1426,293 @@ function displayData(data) {
     
     // Initialize additional charts
     initializeAdditionalCharts();
+}
+
+// Add the scatter plot dialog setup function
+function setupScatterPlotDialog(datasetId) {
+    // Get elements
+    const createScatterBtn = document.getElementById('create-scatter-btn');
+    const scatterDialog = document.getElementById('scatter-dialog');
+    const closeScatterBtn = document.getElementById('close-scatter-btn');
+    const cancelScatterBtn = document.getElementById('cancel-scatter-btn');
+    const generateScatterBtn = document.getElementById('generate-scatter-btn');
+    const xAxisSelect = document.getElementById('x-axis');
+    const yAxisSelect = document.getElementById('y-axis');
+    const colorBySelect = document.getElementById('color-by');
+    
+    // Exit if dialog elements don't exist
+    if (!scatterDialog || !createScatterBtn) return;
+    
+    // Open dialog
+    createScatterBtn.addEventListener('click', function() {
+        // Populate dropdowns with available columns
+        populateScatterSelects();
+        
+        // Show dialog
+        scatterDialog.classList.remove('hidden');
+    });
+    
+    // Close dialog
+    const closeDialog = function() {
+        scatterDialog.classList.add('hidden');
+    };
+    
+    if (closeScatterBtn) {
+        closeScatterBtn.addEventListener('click', closeDialog);
+    }
+    
+    if (cancelScatterBtn) {
+        cancelScatterBtn.addEventListener('click', closeDialog);
+    }
+    
+    // Generate scatter plot
+    if (generateScatterBtn && xAxisSelect && yAxisSelect) {
+        generateScatterBtn.addEventListener('click', function() {
+            const xAxis = xAxisSelect.value;
+            const yAxis = yAxisSelect.value;
+            const colorBy = colorBySelect ? colorBySelect.value : '';
+            
+            if (!xAxis || !yAxis) {
+                alert('Please select both X and Y axes');
+                return;
+            }
+            
+            // Generate the scatter plot
+            createScatterPlot(datasetId, xAxis, yAxis, colorBy);
+            
+            // Close dialog
+            closeDialog();
+        });
+    }
+}
+
+// Add the populate scatter selects function
+function populateScatterSelects() {
+    // Get dashboard data
+    const data = window.dashboardData;
+    if (!data || !data.stats) return;
+    
+    // Get select elements
+    const xAxisSelect = document.getElementById('x-axis');
+    const yAxisSelect = document.getElementById('y-axis');
+    const colorBySelect = document.getElementById('color-by');
+    
+    if (!xAxisSelect || !yAxisSelect) return;
+    
+    // Clear previous options
+    xAxisSelect.innerHTML = '';
+    yAxisSelect.innerHTML = '';
+    
+    if (colorBySelect) {
+        colorBySelect.innerHTML = '<option value="">None</option>';
+    }
+    
+    // Add numeric columns as options
+    Object.keys(data.stats).forEach(column => {
+        const stat = data.stats[column];
+        
+        // For X and Y axes, only use numeric columns
+        if (stat.type === 'numeric') {
+            // Add to X axis
+            const xOption = document.createElement('option');
+            xOption.value = column;
+            xOption.textContent = column;
+            xAxisSelect.appendChild(xOption);
+            
+            // Add to Y axis
+            const yOption = document.createElement('option');
+            yOption.value = column;
+            yOption.textContent = column;
+            yAxisSelect.appendChild(yOption);
+        }
+        
+        // For color by, use categorical columns
+        if (colorBySelect && stat.type === 'categorical') {
+            const option = document.createElement('option');
+            option.value = column;
+            option.textContent = column;
+            colorBySelect.appendChild(option);
+        }
+    });
+}
+
+// Add the create scatter plot function
+function createScatterPlot(datasetId, xAxis, yAxis, colorBy) {
+    showLoading('Creating scatter plot...');
+    
+    // For a real implementation, we would fetch data from the API
+    // For this demo, we'll create a mock scatter plot using the dashboard data
+    const data = window.dashboardData;
+    if (!data || !data.stats) {
+        hideLoading();
+        showError('No data available for scatter plot');
+        return;
+    }
+    
+    // Get container or create one
+    let scatterContainer = document.getElementById('scatter-plot-container');
+    
+    // If container doesn't exist, create it
+    if (!scatterContainer) {
+        const chartContainer = document.getElementById('chart-container');
+        if (!chartContainer) {
+            hideLoading();
+            showError('Chart container not found');
+            return;
+        }
+        
+        // Create a container for the scatter plot
+        scatterContainer = document.createElement('div');
+        scatterContainer.id = 'scatter-plot-container';
+        scatterContainer.className = 'chart-wrapper col-span-1 md:col-span-2 mb-6';
+        scatterContainer.setAttribute('data-type', 'scatter');
+        
+        // Create a card to hold the chart
+        scatterContainer.innerHTML = `
+            <div class="bg-white p-4 rounded-lg shadow-sm h-full">
+                <h3 class="text-lg font-medium mb-3">Scatter Plot: ${xAxis} vs ${yAxis}</h3>
+                <div class="chart-container" style="height: 400px;"></div>
+            </div>
+        `;
+        
+        // Insert at the beginning of the chart container
+        chartContainer.insertBefore(scatterContainer, chartContainer.firstChild);
+    } else {
+        // Update title if container exists
+        const title = scatterContainer.querySelector('h3');
+        if (title) {
+            title.textContent = `Scatter Plot: ${xAxis} vs ${yAxis}`;
+        }
+    }
+    
+    // Get chart container within our wrapper
+    const chartDiv = scatterContainer.querySelector('.chart-container');
+    if (!chartDiv) {
+        hideLoading();
+        showError('Chart div not found');
+        return;
+    }
+    
+    // Clear existing chart
+    chartDiv.innerHTML = '';
+    
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    chartDiv.appendChild(canvas);
+    
+    // Create mock data for the scatter plot
+    const mockData = generateMockScatterData(data, xAxis, yAxis, colorBy);
+    
+    // Create scatter plot
+    createScatterChart(canvas, mockData, xAxis, yAxis, colorBy);
+    
+    hideLoading();
+}
+
+// Helper function to generate mock data for scatter plot
+function generateMockScatterData(data, xAxis, yAxis, colorBy) {
+    // In a real implementation, we would fetch the actual data points
+    // For this demo, we'll create synthetic data based on the column statistics
+    
+    const points = [];
+    const xStat = data.stats[xAxis];
+    const yStat = data.stats[yAxis];
+    
+    // Generate 50 random points within the min/max range of each axis
+    for (let i = 0; i < 50; i++) {
+        const point = {
+            x: getRandomInRange(xStat.min, xStat.max),
+            y: getRandomInRange(yStat.min, yStat.max)
+        };
+        
+        // Add color category if specified
+        if (colorBy && data.stats[colorBy]) {
+            const categories = Object.keys(data.stats[colorBy].value_counts);
+            if (categories.length > 0) {
+                // Randomly assign a category
+                point.category = categories[Math.floor(Math.random() * categories.length)];
+            }
+        }
+        
+        points.push(point);
+    }
+    
+    return points;
+}
+
+// Helper function to get random number in range
+function getRandomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+// Function to create scatter chart
+function createScatterChart(canvas, data, xAxis, yAxis, colorBy) {
+    // Prepare datasets
+    let datasets = [];
+    
+    if (colorBy && data[0] && data[0].category) {
+        // Group by category
+        const categories = [...new Set(data.map(point => point.category))];
+        const colors = generateColors(categories.length);
+        
+        // Create a dataset for each category
+        categories.forEach((category, index) => {
+            const points = data.filter(point => point.category === category);
+            
+            datasets.push({
+                label: category,
+                data: points.map(point => ({ x: point.x, y: point.y })),
+                backgroundColor: colors[index],
+                borderColor: colors[index].replace('0.7', '1'),
+                pointRadius: 5,
+                pointHoverRadius: 7
+            });
+        });
+    } else {
+        // Single dataset
+        datasets = [{
+            label: `${xAxis} vs ${yAxis}`,
+            data: data.map(point => ({ x: point.x, y: point.y })),
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            pointRadius: 5,
+            pointHoverRadius: 7
+        }];
+    }
+    
+    // Create chart
+    new Chart(canvas, {
+        type: 'scatter',
+        data: {
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: xAxis
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: yAxis
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const point = context.raw;
+                            return `${xAxis}: ${point.x.toFixed(2)}, ${yAxis}: ${point.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
 } 

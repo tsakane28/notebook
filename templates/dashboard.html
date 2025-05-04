@@ -39,12 +39,14 @@
     <div class="container mx-auto px-4 py-6">
         <!-- Key Metrics Section -->
         <div class="mb-8">
-            <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                    <h2 class="text-lg font-bold text-primary">Dataset Overview</h2>
-                    <div class="text-sm text-primary-dark">
-                        <i class="fas fa-chart-pie mr-1"></i> Key Metrics
-                    </div>
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-chart-pie text-primary mr-2"></i>Dataset Overview
+                    </h2>
+                    <span class="text-sm text-secondary">
+                        Key Metrics
+                    </span>
                 </div>
                 <div class="p-6">
                     <div id="data-stats" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -62,24 +64,40 @@
             </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="bg-white rounded-lg shadow-md mb-8 overflow-hidden">
-            <div class="border-b border-gray-200 px-6 py-4 flex flex-wrap justify-between items-center">
-                <h2 class="text-lg font-bold text-primary mr-4">
-                    <i class="fas fa-chart-bar mr-2"></i>Data Visualizations
-                </h2>
-                <div class="flex flex-wrap items-center space-x-2 mt-2 sm:mt-0">
-                    <label for="chart-type" class="text-sm text-gray-600">View:</label>
-                    <select id="chart-type" class="text-sm border rounded px-3 py-1.5 bg-white focus:ring-2 focus:ring-primary focus:border-primary">
-                        <option value="all">All Charts</option>
-                        <option value="bar">Bar Charts</option>
-                        <option value="categorical">Categorical</option>
-                        <option value="numeric">Numeric</option>
-                    </select>
-                    <button id="create-scatter-btn" class="bg-success text-white px-4 py-1.5 rounded hover:bg-success-dark transition-colors flex items-center">
-                        <i class="fas fa-plus mr-1.5"></i>Create Scatter Plot
-                    </button>
+        <!-- Visualization Controls -->
+        <div class="visualization-controls mb-6">
+            <div class="visual-control-group">
+                <span class="visual-control-label">View:</span>
+                <select id="chart-type" class="visual-control-select">
+                    <option value="all">All Charts</option>
+                    <option value="categorical">Categorical</option>
+                    <option value="numeric">Numeric</option>
+                </select>
+            </div>
+            
+            <div class="visual-control-group ml-auto">
+                <span class="visual-control-label">Visualization:</span>
+                <div class="visual-type-toggles">
+                    <div class="visual-type-toggle active" data-type="chart">
+                        <i class="fas fa-chart-bar"></i> Charts
+                    </div>
+                    <div class="visual-type-toggle" data-type="table">
+                        <i class="fas fa-table"></i> Table
+                    </div>
                 </div>
+            </div>
+            
+            <button id="create-scatter-btn" class="btn btn-primary ml-4">
+                <i class="fas fa-plus mr-1.5"></i>Create Scatter Plot
+            </button>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="dashboard-card mb-8">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-chart-bar text-primary mr-2"></i>Data Visualizations
+                </h2>
             </div>
             <div id="chart-container" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Dynamically loaded charts -->
@@ -92,60 +110,185 @@
             </div>
         </div>
 
-        <!-- Analytics Tools Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <!-- Training Form -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-md h-full overflow-hidden">
-                    <div class="border-b border-gray-200 px-6 py-4 bg-primary-light bg-opacity-10">
-                        <h2 class="text-lg font-bold text-primary">
-                            <i class="fas fa-brain mr-2"></i>Train Model
-                        </h2>
-                    </div>
-                    <div class="p-6">
-                        <form id="model-form" class="space-y-4">
-                            <div>
-                                <label for="target-column" class="block text-sm font-medium text-gray-700 mb-1">Target Column:</label>
-                                <select id="target-column" class="form-control">
-                                    <option value="">Select a column...</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="model-type" class="block text-sm font-medium text-gray-700 mb-1">Model Type:</label>
-                                <select id="model-type" class="form-control">
-                                    <option value="LinearRegression">Linear Regression</option>
-                                    <option value="RandomForest">Random Forest</option>
-                                    <option value="GradientBoosting">Gradient Boosting</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="w-full btn btn-primary">
-                                <i class="fas fa-play mr-2"></i>Train Model
-                            </button>
-                        </form>
-                    </div>
-                </div>
+        <!-- Model Training Section -->
+        <div class="card shadow-sm mb-6">
+            <div class="card-header bg-white p-4 border-b">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-brain text-primary mr-2"></i> Train Model
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">Train a machine learning model using your data to predict outcomes</p>
             </div>
+            <div class="card-body p-4">
+                <form id="model-form" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="target-column" class="block text-sm font-medium text-gray-700 mb-1">Target Column</label>
+                            <select id="target-column" class="form-select w-full rounded-md border-gray-300">
+                                <option value="">Select a column</option>
+                                <!-- Options will be populated from data -->
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Select the column you want to predict</p>
+                        </div>
+                        <div>
+                            <label for="model-type" class="block text-sm font-medium text-gray-700 mb-1">Model Type</label>
+                            <select id="model-type" class="form-select w-full rounded-md border-gray-300">
+                                <option value="LinearRegression">Linear Regression</option>
+                                <option value="RandomForest">Random Forest</option>
+                                <option value="GradientBoosting">Gradient Boosting</option>
+                                <option value="SVM">Support Vector Machine</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Select the type of model to train</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Linear Regression Parameters -->
+                    <div id="linear-params" class="params-section bg-light rounded-lg p-3">
+                        <h3 class="text-sm font-medium mb-2">Linear Regression Parameters</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="fit-intercept" class="block text-xs font-medium text-gray-700 mb-1">Fit Intercept</label>
+                                <select id="fit-intercept" class="form-select w-full text-sm rounded-md border-gray-300">
+                                    <option value="true">True</option>
+                                    <option value="false">False</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="normalize" class="block text-xs font-medium text-gray-700 mb-1">Normalize</label>
+                                <select id="normalize" class="form-select w-full text-sm rounded-md border-gray-300">
+                                    <option value="true">True</option>
+                                    <option value="false">False</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Random Forest Parameters -->
+                    <div id="forest-params" class="params-section bg-light rounded-lg p-3 hidden">
+                        <h3 class="text-sm font-medium mb-2">Random Forest Parameters</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="n-estimators" class="block text-xs font-medium text-gray-700 mb-1">Number of Trees</label>
+                                <input type="number" id="n-estimators" class="form-input w-full text-sm rounded-md border-gray-300" value="100" min="10" max="1000">
+                            </div>
+                            <div>
+                                <label for="max-depth" class="block text-xs font-medium text-gray-700 mb-1">Max Depth</label>
+                                <select id="max-depth" class="form-select w-full text-sm rounded-md border-gray-300">
+                                    <option value="None">None</option>
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="20">20</option>
+                                    <option value="30">30</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="min-samples-split" class="block text-xs font-medium text-gray-700 mb-1">Min Samples Split</label>
+                                <input type="number" id="min-samples-split" class="form-input w-full text-sm rounded-md border-gray-300" value="2" min="2" max="10">
+                            </div>
+                            <div>
+                                <label for="min-samples-leaf" class="block text-xs font-medium text-gray-700 mb-1">Min Samples Leaf</label>
+                                <input type="number" id="min-samples-leaf" class="form-input w-full text-sm rounded-md border-gray-300" value="1" min="1" max="10">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gradient Boosting Parameters -->
+                    <div id="boost-params" class="params-section bg-light rounded-lg p-3 hidden">
+                        <h3 class="text-sm font-medium mb-2">Gradient Boosting Parameters</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="gb-n-estimators" class="block text-xs font-medium text-gray-700 mb-1">Number of Estimators</label>
+                                <input type="number" id="gb-n-estimators" class="form-input w-full text-sm rounded-md border-gray-300" value="100" min="10" max="1000">
+                            </div>
+                            <div>
+                                <label for="learning-rate" class="block text-xs font-medium text-gray-700 mb-1">Learning Rate</label>
+                                <input type="number" id="learning-rate" class="form-input w-full text-sm rounded-md border-gray-300" value="0.1" min="0.001" max="1" step="0.01">
+                            </div>
+                            <div>
+                                <label for="gb-max-depth" class="block text-xs font-medium text-gray-700 mb-1">Max Depth</label>
+                                <input type="number" id="gb-max-depth" class="form-input w-full text-sm rounded-md border-gray-300" value="3" min="1" max="10">
+                            </div>
+                            <div>
+                                <label for="subsample" class="block text-xs font-medium text-gray-700 mb-1">Subsample</label>
+                                <input type="number" id="subsample" class="form-input w-full text-sm rounded-md border-gray-300" value="1" min="0.1" max="1" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- SVM Parameters -->
+                    <div id="svm-params" class="params-section bg-light rounded-lg p-3 hidden">
+                        <h3 class="text-sm font-medium mb-2">SVM Parameters</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="kernel" class="block text-xs font-medium text-gray-700 mb-1">Kernel</label>
+                                <select id="kernel" class="form-select w-full text-sm rounded-md border-gray-300">
+                                    <option value="rbf">RBF</option>
+                                    <option value="linear">Linear</option>
+                                    <option value="poly">Polynomial</option>
+                                    <option value="sigmoid">Sigmoid</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="c-value" class="block text-xs font-medium text-gray-700 mb-1">C (Regularization)</label>
+                                <input type="number" id="c-value" class="form-input w-full text-sm rounded-md border-gray-300" value="1.0" min="0.1" max="10" step="0.1">
+                            </div>
+                            <div>
+                                <label for="gamma" class="block text-xs font-medium text-gray-700 mb-1">Gamma</label>
+                                <select id="gamma" class="form-select w-full text-sm rounded-md border-gray-300">
+                                    <option value="scale">Scale</option>
+                                    <option value="auto">Auto</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Test Size Slider -->
+                    <div class="bg-light rounded-lg p-3">
+                        <h3 class="text-sm font-medium mb-2">Test Size</h3>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" id="test-size" class="form-range w-full" min="10" max="40" value="20" step="5">
+                            <span id="test-size-value" class="text-sm font-medium">20%</span>
+                        </div>
+                        <div class="flex items-center mt-2">
+                            <input type="checkbox" id="cross-validation" class="form-checkbox h-4 w-4 text-primary">
+                            <label for="cross-validation" class="ml-2 text-sm text-gray-700">Use cross-validation</label>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn btn-primary px-6">
+                            <i class="fas fa-play mr-2"></i> Train Model
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
-            <!-- Model Results -->
-            <div class="lg:col-span-2">
-                <div id="model-section" class="bg-white rounded-lg shadow-md h-full hidden overflow-hidden">
-                    <div class="border-b border-gray-200 px-6 py-4 bg-primary-light bg-opacity-10">
-                        <h2 class="text-lg font-bold text-primary">
-                            <i class="fas fa-chart-line mr-2"></i>Model Results
-                        </h2>
-                    </div>
-                    <div id="model-results" class="p-6">
-                        <!-- Dynamically loaded results -->
-                    </div>
+        <!-- Model Results Section -->
+        <div id="model-section" class="card shadow-sm mb-6 hidden">
+            <div class="card-header bg-white p-4 border-b flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-chart-line text-primary mr-2"></i> Model Results
+                    </h2>
+                    <p class="text-sm text-gray-600 mt-1">Results for predicting: <span id="model-target-name" class="font-medium">Target</span></p>
+                </div>
+                <button id="download-model-btn" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-download mr-1"></i> Export Results
+                </button>
+            </div>
+            <div class="card-body p-4">
+                <div id="model-results" class="space-y-4">
+                    <!-- Results will be inserted here -->
                 </div>
             </div>
         </div>
 
         <!-- Insights Section -->
-        <div id="insights-section" class="bg-white rounded-lg shadow-md mb-8 hidden overflow-hidden">
-            <div class="border-b border-gray-200 px-6 py-4 bg-primary-light bg-opacity-10">
-                <h2 class="text-lg font-bold text-primary">
-                    <i class="fas fa-lightbulb mr-2"></i>AI Insights
+        <div id="insights-section" class="dashboard-card mb-8 hidden">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-lightbulb text-primary mr-2"></i>AI Insights
                 </h2>
             </div>
             <div class="p-6">
@@ -153,7 +296,7 @@
                     <div class="lg:col-span-1">
                         <form id="insights-form" class="space-y-4">
                             <div>
-                                <label for="insight-prompt" class="block text-sm font-medium text-gray-700 mb-1">Ask about your data:</label>
+                                <label for="insight-prompt" class="form-label">Ask about your data:</label>
                                 <textarea id="insight-prompt" rows="3" class="form-control" placeholder="E.g., What are the key trends in this dataset?"></textarea>
                             </div>
                             <button type="submit" class="w-full btn btn-primary">
@@ -174,24 +317,159 @@
         </div>
         
         <!-- Data Preview Section -->
-        <div class="bg-white rounded-lg shadow-md mb-8 overflow-hidden">
-            <div class="border-b border-gray-200 px-6 py-4 bg-primary-light bg-opacity-10">
-                <h2 class="text-lg font-bold text-primary">
-                    <i class="fas fa-table mr-2"></i>Data Preview
+        <div class="dashboard-card mb-8">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-table text-primary mr-2"></i>Data Preview
                 </h2>
+                <div class="flex space-x-2">
+                    <div class="relative flex-grow max-w-md">
+                        <input type="text" id="data-search" placeholder="Search data..." class="form-input pl-8 w-full rounded-md border-gray-300">
+                        <div class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-search"></i>
+                        </div>
+                    </div>
+                    <select id="data-search-column" class="form-select rounded-md border-gray-300">
+                        <option value="all">All columns</option>
+                        <!-- Column options will be populated dynamically -->
+                    </select>
+                </div>
             </div>
             <div class="p-4">
-                <div id="data-preview" class="data-preview-container min-h-[200px]">
-                    <table class="data-preview-table hidden" id="preview-table">
-                        <thead>
-                            <tr id="preview-header"></tr>
-                        </thead>
-                        <tbody id="preview-body"></tbody>
-                    </table>
-                    <div class="text-center py-12" id="preview-loading">
-                        <div class="loading-spinner mx-auto"></div>
+                <!-- Loading indicator -->
+                <div id="data-preview-loading" class="py-12 flex justify-center">
+                    <div class="text-center">
+                        <div class="loading-spinner"></div>
                         <p class="mt-4 text-gray-500">Loading data preview...</p>
                     </div>
+                </div>
+                
+                <!-- Empty state -->
+                <div id="data-preview-empty" class="py-12 hidden">
+                    <div class="text-center">
+                        <div class="text-gray-400 mb-3"><i class="fas fa-table fa-3x"></i></div>
+                        <h3 class="text-lg font-medium text-gray-700 mb-1">No Data Available</h3>
+                        <p class="text-gray-500">This dataset doesn't have any data available for preview.</p>
+                    </div>
+                </div>
+                
+                <!-- No results state -->
+                <div id="data-preview-no-results" class="py-12 hidden">
+                    <div class="text-center">
+                        <div class="text-gray-400 mb-3"><i class="fas fa-search fa-3x"></i></div>
+                        <h3 class="text-lg font-medium text-gray-700 mb-1">No Matching Results</h3>
+                        <p class="text-gray-500">Try adjusting your search criteria.</p>
+                    </div>
+                </div>
+                
+                <!-- Data table -->
+                <div id="data-preview-table" class="overflow-hidden border border-gray-200 rounded-lg hidden">
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr id="data-preview-headers">
+                                    <!-- Table headers will be populated dynamically -->
+                                </tr>
+                            </thead>
+                            <tbody id="data-preview-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Table rows will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 text-sm flex items-center justify-between">
+                        <div class="text-gray-600">
+                            Showing <span id="data-preview-count">0</span> of <span id="data-total-count">0</span> rows
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="data-preview-prev" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button id="data-preview-next" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Email & AI Tools Visual Analysis -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Email Analysis -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-envelope text-primary mr-2"></i>Email Domain Analysis
+                    </h2>
+                    <div class="flex items-center">
+                        <select id="email-chart-type" class="text-sm border rounded p-1 bg-white mr-2">
+                            <option value="pie">Pie Chart</option>
+                            <option value="bar">Bar Chart</option>
+                            <option value="doughnut">Doughnut Chart</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div id="email-chart-container" style="height: 280px;"></div>
+                </div>
+            </div>
+            
+            <!-- AI Tools Used -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-robot text-primary mr-2"></i>AI Tools Used
+                    </h2>
+                    <div class="flex items-center">
+                        <select id="ai-tools-chart-type" class="text-sm border rounded p-1 bg-white mr-2">
+                            <option value="bar">Bar Chart</option>
+                            <option value="pie">Pie Chart</option>
+                            <option value="polarArea">Polar Area</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div id="ai-tools-chart-container" style="height: 280px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tools & Challenges Analysis -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Challenges Analysis -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-exclamation-triangle text-primary mr-2"></i>Challenges
+                    </h2>
+                    <div class="flex items-center">
+                        <select id="challenges-chart-type" class="text-sm border rounded p-1 bg-white mr-2">
+                            <option value="bar">Bar Chart</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div id="challenges-chart-container" style="height: 280px;"></div>
+                </div>
+            </div>
+            
+            <!-- Helpful Tools Analysis -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-tools text-primary mr-2"></i>Helpful Tools Needed
+                    </h2>
+                    <div class="flex items-center">
+                        <select id="helpful-tools-chart-type" class="text-sm border rounded p-1 bg-white mr-2">
+                            <option value="bar">Bar Chart</option>
+                            <option value="pie">Pie Chart</option>
+                            <option value="horizontalBar">Horizontal Bar</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div id="helpful-tools-chart-container" style="height: 280px;"></div>
                 </div>
             </div>
         </div>
@@ -200,80 +478,90 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Tools Used Section -->
             <div class="tools-section">
-                <h2 class="info-section-title">Tools Used</h2>
-                
-                <div class="tool-item">
-                    <div class="tool-icon">
-                        <i class="fas fa-flask"></i>
-                    </div>
-                    <div class="tool-content">
-                        <h3 class="tool-name">Python</h3>
-                        <p class="tool-description">Core programming language for data processing and backend logic</p>
-                    </div>
+                <div class="info-section-header">
+                    <h2 class="info-section-title">
+                        <i class="fas fa-wrench mr-2"></i>Tools Used
+                    </h2>
                 </div>
-                
-                <div class="tool-item">
-                    <div class="tool-icon">
-                        <i class="fas fa-server"></i>
+                <div class="info-section-body">
+                    <div class="tool-item">
+                        <div class="tool-icon">
+                            <i class="fab fa-python"></i>
+                        </div>
+                        <div class="tool-content">
+                            <h3 class="tool-name">Python</h3>
+                            <p class="tool-description">Core programming language for data processing and backend logic</p>
+                        </div>
                     </div>
-                    <div class="tool-content">
-                        <h3 class="tool-name">Flask</h3>
-                        <p class="tool-description">Web framework for building the dashboard application</p>
+                    
+                    <div class="tool-item">
+                        <div class="tool-icon">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div class="tool-content">
+                            <h3 class="tool-name">Flask</h3>
+                            <p class="tool-description">Web framework for building the dashboard application</p>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="tool-item">
-                    <div class="tool-icon">
-                        <i class="fas fa-chart-bar"></i>
+                    
+                    <div class="tool-item">
+                        <div class="tool-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="tool-content">
+                            <h3 class="tool-name">Chart.js</h3>
+                            <p class="tool-description">JavaScript library for interactive data visualizations</p>
+                        </div>
                     </div>
-                    <div class="tool-content">
-                        <h3 class="tool-name">Chart.js</h3>
-                        <p class="tool-description">JavaScript library for interactive data visualizations</p>
-                    </div>
-                </div>
-                
-                <div class="tool-item">
-                    <div class="tool-icon">
-                        <i class="fas fa-database"></i>
-                    </div>
-                    <div class="tool-content">
-                        <h3 class="tool-name">SQLite</h3>
-                        <p class="tool-description">Lightweight database for persistent data storage</p>
+                    
+                    <div class="tool-item">
+                        <div class="tool-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="tool-content">
+                            <h3 class="tool-name">SQLite</h3>
+                            <p class="tool-description">Lightweight database for persistent data storage</p>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <!-- Challenges Section -->
             <div class="challenges-section">
-                <h2 class="info-section-title">Challenges & Solutions</h2>
-                
-                <div class="challenge-item">
-                    <div class="challenge-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div class="challenge-content">
-                        <h3 class="challenge-name">Data Persistence</h3>
-                        <p class="challenge-description">Implemented SQLite3 database to prevent data loss between sessions</p>
-                    </div>
+                <div class="info-section-header">
+                    <h2 class="info-section-title">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Challenges & Solutions
+                    </h2>
                 </div>
-                
-                <div class="challenge-item">
-                    <div class="challenge-icon">
-                        <i class="fas fa-mobile-alt"></i>
+                <div class="info-section-body">
+                    <div class="challenge-item">
+                        <div class="challenge-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="challenge-content">
+                            <h3 class="challenge-name">Data Persistence</h3>
+                            <p class="challenge-description">Implemented SQLite3 database to prevent data loss between sessions</p>
+                        </div>
                     </div>
-                    <div class="challenge-content">
-                        <h3 class="challenge-name">Responsive Design</h3>
-                        <p class="challenge-description">Created mobile-friendly layout using Tailwind CSS</p>
+                    
+                    <div class="challenge-item">
+                        <div class="challenge-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <div class="challenge-content">
+                            <h3 class="challenge-name">Responsive Design</h3>
+                            <p class="challenge-description">Created mobile-friendly layout using Tailwind CSS</p>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="challenge-item">
-                    <div class="challenge-icon">
-                        <i class="fas fa-chart-pie"></i>
-                    </div>
-                    <div class="challenge-content">
-                        <h3 class="challenge-name">Visualization Error</h3>
-                        <p class="challenge-description">Fixed chart rendering issues by implementing proper Chart.js integration</p>
+                    
+                    <div class="challenge-item">
+                        <div class="challenge-icon">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                        <div class="challenge-content">
+                            <h3 class="challenge-name">Visualization Error</h3>
+                            <p class="challenge-description">Fixed chart rendering issues by implementing proper Chart.js integration</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -282,31 +570,42 @@
         <!-- Contact and Suggestions -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Contact Info -->
-            <div class="contact-section">
-                <h2 class="info-section-title">Contact Information</h2>
-                <p class="mb-2">For support or questions about this dashboard, please contact:</p>
-                <div class="email-display">
-                    <i class="fas fa-envelope mr-2"></i> support@analyticsdashboard.com
+            <div class="email-section">
+                <div class="info-section-header">
+                    <h2 class="info-section-title">
+                        <i class="fas fa-envelope mr-2"></i>Contact Information
+                    </h2>
+                </div>
+                <div class="info-section-body">
+                    <p class="mb-2">For support or questions about this dashboard, please contact:</p>
+                    <div class="email-display">
+                        <i class="fas fa-envelope mr-2"></i> support@analyticsdashboard.com
+                    </div>
                 </div>
             </div>
             
             <!-- Suggestions -->
             <div class="suggestions-section">
-                <h2 class="info-section-title">Suggestions</h2>
-                
-                <div class="suggestion-item">
-                    <h3 class="suggestion-title">Try Different Models</h3>
-                    <p class="suggestion-description">Experiment with different model types to find the best fit for your data</p>
+                <div class="info-section-header">
+                    <h2 class="info-section-title">
+                        <i class="fas fa-lightbulb mr-2"></i>Suggestions
+                    </h2>
                 </div>
-                
-                <div class="suggestion-item">
-                    <h3 class="suggestion-title">Explore Correlations</h3>
-                    <p class="suggestion-description">Use scatter plots to discover relationships between variables</p>
-                </div>
-                
-                <div class="suggestion-item">
-                    <h3 class="suggestion-title">Export Results</h3>
-                    <p class="suggestion-description">Save your insights and model results for reporting</p>
+                <div class="info-section-body">
+                    <div class="suggestion-item">
+                        <h3 class="suggestion-title">Try Different Models</h3>
+                        <p class="suggestion-description">Experiment with different model types to find the best fit for your data</p>
+                    </div>
+                    
+                    <div class="suggestion-item">
+                        <h3 class="suggestion-title">Explore Correlations</h3>
+                        <p class="suggestion-description">Use scatter plots to discover relationships between variables</p>
+                    </div>
+                    
+                    <div class="suggestion-item">
+                        <h3 class="suggestion-title">Export Results</h3>
+                        <p class="suggestion-description">Save your insights and model results for reporting</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -316,29 +615,29 @@
 <!-- Scatter Plot Modal -->
 <div id="scatter-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
     <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
-        <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center bg-primary-light bg-opacity-10">
-            <h3 class="text-lg font-bold text-primary">Create Scatter Plot</h3>
+        <div class="card-header">
+            <h3 class="card-title">Create Scatter Plot</h3>
             <button id="close-scatter-btn" class="text-gray-500 hover:text-gray-800 text-xl">&times;</button>
         </div>
         <div class="p-6 space-y-4">
             <div>
-                <label for="x-axis" class="block text-sm font-medium text-gray-700 mb-1">X Axis:</label>
+                <label for="x-axis" class="form-label">X Axis:</label>
                 <select id="x-axis" class="form-control"></select>
             </div>
             <div>
-                <label for="y-axis" class="block text-sm font-medium text-gray-700 mb-1">Y Axis:</label>
+                <label for="y-axis" class="form-label">Y Axis:</label>
                 <select id="y-axis" class="form-control"></select>
             </div>
             <div>
-                <label for="color-by" class="block text-sm font-medium text-gray-700 mb-1">Color By (optional):</label>
+                <label for="color-by" class="form-label">Color By (optional):</label>
                 <select id="color-by" class="form-control">
                     <option value="">None</option>
                 </select>
             </div>
         </div>
         <div class="border-t border-gray-200 px-6 py-4 flex justify-end space-x-2">
-            <button id="cancel-scatter-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors">Cancel</button>
-            <button id="generate-scatter-btn" class="btn btn-primary px-4 py-2">Generate</button>
+            <button id="cancel-scatter-btn" class="btn btn-outline">Cancel</button>
+            <button id="generate-scatter-btn" class="btn btn-primary">Generate</button>
         </div>
     </div>
 </div>
@@ -365,6 +664,12 @@
         
         // Add data preview functionality
         fetchDataPreview(window.datasetId);
+        
+        // Setup chart type selection events
+        setupChartTypeSelectors();
+        
+        // Setup visual type toggle
+        setupVisualTypeToggles();
     });
     
     // Fetch data preview
@@ -446,6 +751,53 @@
             </div>
             <p class="text-sm text-gray-500">Mock data will be shown for demonstration purposes.</p>
         `;
+    }
+    
+    // Setup chart type selectors
+    function setupChartTypeSelectors() {
+        const selectors = [
+            'email-chart-type',
+            'ai-tools-chart-type',
+            'challenges-chart-type',
+            'helpful-tools-chart-type'
+        ];
+        
+        selectors.forEach(selector => {
+            const element = document.getElementById(selector);
+            if (element) {
+                element.addEventListener('change', function() {
+                    const chartType = this.value;
+                    const chartContainer = this.closest('.dashboard-card').querySelector('[id$=chart-container]');
+                    
+                    // In a real implementation, this would update the chart with the new type
+                    console.log(`Changing ${selector} to ${chartType}`);
+                    
+                    // Here we'd call a function to redraw the chart with the new type
+                    // updateChart(chartContainer.id, chartType);
+                });
+            }
+        });
+    }
+    
+    // Setup visual type toggles
+    function setupVisualTypeToggles() {
+        const toggles = document.querySelectorAll('.visual-type-toggle');
+        
+        toggles.forEach(toggle => {
+            toggle.addEventListener('click', function() {
+                // Remove active class from all toggles
+                toggles.forEach(t => t.classList.remove('active'));
+                
+                // Add active class to clicked toggle
+                this.classList.add('active');
+                
+                // Get the selected type
+                const visualType = this.getAttribute('data-type');
+                
+                // Here we'd implement the switch between chart and table views
+                console.log(`Switching to ${visualType} view`);
+            });
+        });
     }
 </script>
 {% endblock %} 

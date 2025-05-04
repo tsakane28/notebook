@@ -1,94 +1,109 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI in Education Survey Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-    <header>
-        <h1>AI in Education Survey Dashboard</h1>
-        <nav>
-            <ul>
-                <li><a href="{{ url_for('index') }}" class="active">Home</a></li>
-                <li><a href="{{ url_for('upload_file') }}">Upload Data</a></li>
-                {% if data_id %}
-                <li><a href="{{ url_for('dashboard', data_id=data_id) }}">Dashboard</a></li>
-                {% endif %}
-            </ul>
-        </nav>
-    </header>
-    
-    <main class="landing-page">
-        <section class="hero">
-            <div class="hero-content">
-                <h2>AI Adoption in Education Analytics Platform</h2>
-                <p>Analyze and visualize AI usage patterns in the education sector with machine learning and generative AI insights.</p>
-                <div class="hero-actions">
-                    <a href="{{ url_for('upload_file') }}" class="primary-btn">Upload Survey Data</a>
-                    {% if data_id %}
-                    <a href="{{ url_for('dashboard', data_id=data_id) }}" class="secondary-btn">View Dashboard</a>
-                    {% endif %}
+{% extends "base.html" %}
+
+{% block title %}Home - Data Analytics Dashboard{% endblock %}
+
+{% block nav_home %}font-bold border-b-2 border-white{% endblock %}
+
+{% block content %}
+<div class="bg-gradient-to-b from-primary-light to-primary-dark/10 py-16">
+    <div class="container mx-auto px-4">
+        <div class="max-w-3xl mx-auto text-center">
+            <h1 class="text-4xl font-bold mb-6 text-primary-dark">Welcome to the Data Analytics Dashboard</h1>
+            <p class="text-xl text-gray-700 mb-8">Analyze, visualize, and extract insights from your data with our powerful analytics platform.</p>
+            <a href="/upload" class="bg-primary hover:bg-primary-dark text-white font-bold py-3 px-6 rounded-lg transition-colors inline-flex items-center">
+                <i class="fas fa-upload mr-2"></i> Upload Your Data
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container mx-auto px-4 py-16">
+    <!-- Features Section -->
+    <div class="mb-16">
+        <h2 class="text-3xl font-bold text-center mb-12 text-primary">Key Features</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="bg-white p-8 rounded-lg shadow-md text-center">
+                <div class="text-primary text-4xl mb-4">
+                    <i class="fas fa-chart-bar"></i>
                 </div>
+                <h3 class="text-xl font-bold mb-3">Interactive Visualizations</h3>
+                <p class="text-gray-600">Create and customize charts to visualize your data in meaningful ways.</p>
             </div>
-        </section>
-        
-        <section class="features">
-            <h2>Platform Features</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">📊</div>
-                    <h3>Data Visualization</h3>
-                    <p>Interactive charts and graphs to understand AI adoption patterns across demographics.</p>
+            <div class="bg-white p-8 rounded-lg shadow-md text-center">
+                <div class="text-primary text-4xl mb-4">
+                    <i class="fas fa-brain"></i>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h3>Data Processing</h3>
-                    <p>Automated data validation, cleaning, and preprocessing for your survey data.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🤖</div>
-                    <h3>Predictive Models</h3>
-                    <p>Train machine learning models to predict AI adoption trends and impact.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">💡</div>
-                    <h3>AI-Powered Insights</h3>
-                    <p>Get intelligent analysis of your data using generative AI models.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">❓</div>
-                    <h3>Interactive Q&A</h3>
-                    <p>Ask questions about your data and get natural language responses.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📱</div>
-                    <h3>Responsive Design</h3>
-                    <p>Access insights from any device with our responsive dashboard.</p>
-                </div>
+                <h3 class="text-xl font-bold mb-3">ML Model Training</h3>
+                <p class="text-gray-600">Train machine learning models on your data to predict outcomes and identify patterns.</p>
             </div>
-        </section>
-        
-        {% if data_id %}
-        <section class="recent-data">
-            <h2>Recent Dataset</h2>
-            <p>You have a dataset ready for analysis. <a href="{{ url_for('dashboard', data_id=data_id) }}">View Dashboard</a></p>
-        </section>
+            <div class="bg-white p-8 rounded-lg shadow-md text-center">
+                <div class="text-primary text-4xl mb-4">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-3">AI-Powered Insights</h3>
+                <p class="text-gray-600">Generate intelligent insights and recommendations based on your data.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Datasets Section -->
+    <div class="mb-16">
+        <h2 class="text-3xl font-bold text-center mb-12 text-primary">Recent Datasets</h2>
+        {% if datasets %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for dataset in datasets %}
+            <a href="/dashboard/{{ dataset.id }}" class="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                <div class="bg-primary-dark text-white p-4">
+                    <h3 class="font-bold truncate">{{ dataset.name }}</h3>
+                </div>
+                <div class="p-4">
+                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                        <span><i class="fas fa-table mr-1"></i> {{ dataset.rows }} rows</span>
+                        <span><i class="fas fa-columns mr-1"></i> {{ dataset.columns }} columns</span>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        <i class="fas fa-clock mr-1"></i> Uploaded: {{ dataset.upload_date }}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
         {% else %}
-        <section class="get-started">
-            <h2>Get Started</h2>
-            <p>Upload your survey data to begin analyzing AI adoption patterns in education.</p>
-            <a href="{{ url_for('upload_file') }}" class="primary-btn">Upload Data</a>
-        </section>
+        <div class="bg-light p-8 rounded-lg border border-gray-200 text-center">
+            <p class="text-gray-600 mb-4">No datasets uploaded yet.</p>
+            <a href="/upload" class="inline-flex items-center text-primary hover:text-primary-dark font-medium">
+                <i class="fas fa-upload mr-2"></i> Upload your first dataset
+            </a>
+        </div>
         {% endif %}
-    </main>
-    
-    <footer>
-        <p>Created for the AI in Education Survey Analysis</p>
-    </footer>
-    
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-</body>
-</html> 
+    </div>
+
+    <!-- How It Works Section -->
+    <div>
+        <h2 class="text-3xl font-bold text-center mb-12 text-primary">How It Works</h2>
+        <div class="max-w-4xl mx-auto">
+            <div class="flex flex-col md:flex-row items-center mb-12">
+                <div class="bg-primary text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold mb-4 md:mb-0 md:mr-6">1</div>
+                <div class="flex-1 text-center md:text-left">
+                    <h3 class="text-xl font-bold mb-2">Upload Your CSV Data</h3>
+                    <p class="text-gray-600">Upload your CSV file with demographic, survey, and other data fields.</p>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row items-center mb-12">
+                <div class="bg-primary text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold mb-4 md:mb-0 md:mr-6">2</div>
+                <div class="flex-1 text-center md:text-left">
+                    <h3 class="text-xl font-bold mb-2">Explore & Analyze</h3>
+                    <p class="text-gray-600">Use interactive charts and filters to explore your data and identify patterns.</p>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="bg-primary text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold mb-4 md:mb-0 md:mr-6">3</div>
+                <div class="flex-1 text-center md:text-left">
+                    <h3 class="text-xl font-bold mb-2">Train Models & Get Insights</h3>
+                    <p class="text-gray-600">Train machine learning models and get AI-powered insights and recommendations.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

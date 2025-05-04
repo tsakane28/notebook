@@ -37,7 +37,7 @@ A professional data visualization and analytics dashboard for exploring CSV data
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/data-analytics-dashboard.git
+   git clone https://github.com/tsakane28/data-analytics-dashboard.git
    cd data-analytics-dashboard
    ```
 

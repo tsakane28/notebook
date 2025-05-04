@@ -11,6 +11,14 @@ import uuid
 import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.svm import SVR
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+import joblib
 
 # Local imports
 from utils.data_processor import validate_csv, transform_data, analyze_data
@@ -307,71 +315,300 @@ def filter_data():
 
 
 @app.route('/api/train_model/<dataset_id>', methods=['POST'])
-def train_model_endpoint(dataset_id):
-    """API endpoint to train a model on the dataset"""
-    # Get dataset from database
-    conn = get_db_connection()
-    dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
-    conn.close()
+def train_model(dataset_id):
+    """
+    Train a machine learning model on the dataset.
     
-    if not dataset:
-        return jsonify({'success': False, 'error': 'Dataset not found'}), 404
-    
-    # Convert to dictionary
-    dataset = dict(dataset)
-    
-    if not dataset.get('processed'):
-        return jsonify({'success': False, 'error': 'Dataset not processed yet'}), 400
-    
-    data = request.json
-    target_column = data.get('target_column')
-    model_type = data.get('model_type', 'classifier')
-    preprocessing = data.get('preprocessing', {})
-    exclude_columns = data.get('exclude_columns', [])
-    
-    if not target_column:
-        return jsonify({'success': False, 'error': 'Target column not specified'}), 400
-    
+    Args:
+        dataset_id: The ID of the dataset to train the model on.
+        
+    Returns:
+        JSON response with model results or error.
+    """
     try:
-        # Load the data
-        all_data = transform_data(dataset['path'])
+        # Get the request data
+        data = request.get_json()
+        target_column = data.get('target_column')
+        model_type = data.get('model_type', 'LinearRegression')
+        params = data.get('params', {})
+        test_size = data.get('test_size', 0.2)
+        use_cross_validation = data.get('use_cross_validation', False)
         
-        # Train model
-        model_result = train_model(
-            all_data, 
-            target_column, 
-            model_type, 
-            preprocessing, 
-            exclude_columns
-        )
+        # Validate inputs
+        if not target_column:
+            return jsonify({"success": False, "error": "Target column is required"})
         
-        if not model_result.get('success'):
-            return jsonify({
-                'success': False, 
-                'error': model_result.get('error', 'Unknown error during model training')
-            }), 400
+        # Get the dataset
+        conn = get_db_connection()
+        dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
+        conn.close()
+        
+        if not dataset:
+            return jsonify({"success": False, "error": "Dataset not found"})
+        
+        # Convert to dictionary
+        dataset = dict(dataset)
+        
+        # Load the actual data from the file
+        if not os.path.exists(dataset['path']):
+            return jsonify({"success": False, "error": "Dataset file not found"})
+        
+        # Load data using pandas
+        try:
+            df = pd.read_csv(dataset['path'])
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Error reading dataset: {str(e)}"})
+        
+        # Check if target column exists in the dataset
+        if target_column not in df.columns:
+            return jsonify({"success": False, "error": f"Target column '{target_column}' not found in dataset"})
+        
+        # Check if target column is categorical and convert if needed
+        target = df[target_column]
+        target_mapping = {}
+        is_categorical_target = False
+        
+        # Check if target column has string values
+        if target.dtype == 'object' or pd.api.types.is_categorical_dtype(target):
+            is_categorical_target = True
+            # Create a mapping from categorical values to numbers
+            unique_values = target.unique()
+            target_mapping = {val: idx for idx, val in enumerate(unique_values)}
+            # Convert target to numeric values
+            target = target.map(target_mapping)
             
-        # Get model evaluation metrics
-        evaluation = evaluate_model(model_result['model'], model_result['test_data'], model_type)
+            # Check if conversion succeeded
+            if target.isna().any():
+                return jsonify({
+                    "success": False, 
+                    "error": f"Could not convert all values in target column '{target_column}' to numeric"
+                })
         
-        # Save model for future use
-        model_path = os.path.join(
-            app.config['MODELS_FOLDER'], 
-            f"{dataset_id}_{target_column}_{model_type}.pkl"
+        # Extract features
+        features = df.drop(columns=[target_column])
+        
+        # Handle categorical features in the feature set
+        features = pd.get_dummies(features)
+        
+        # Split the data
+        X_train, X_test, y_train, y_test = train_test_split(
+            features, target, test_size=test_size, random_state=42
         )
         
-        # Return model results
-        return jsonify({
-            'success': True,
-            'target_column': target_column,
-            'model_type': model_type,
-            'metrics': evaluation['metrics'],
-            'feature_importance': evaluation.get('feature_importance')
-        })
+        # Initialize the model based on type
+        model = initialize_model(model_type, params)
         
+        # Train the model
+        if use_cross_validation:
+            # Import cross_val_score if needed
+            from sklearn.model_selection import cross_val_score
+            # Perform cross-validation
+            cv_scores = cross_val_score(model, features, target, cv=5)
+            model.fit(X_train, y_train)
+        else:
+            # Standard training
+            model.fit(X_train, y_train)
+        
+        # Make predictions on test set
+        y_pred = model.predict(X_test)
+        
+        # Calculate metrics
+        metrics = calculate_metrics(y_test, y_pred)
+        
+        # Get feature importance if applicable
+        feature_importance = {}
+        if hasattr(model, 'feature_importances_'):
+            # For tree-based models
+            feature_importance = dict(zip(features.columns, model.feature_importances_))
+        elif hasattr(model, 'coef_'):
+            # For linear models
+            if len(model.coef_.shape) == 1:
+                # Regression
+                importance_values = abs(model.coef_)
+                # Normalize to sum to 1
+                importance_values = importance_values / importance_values.sum()
+                feature_importance = dict(zip(features.columns, importance_values))
+            else:
+                # Classification
+                importance_values = np.mean(abs(model.coef_), axis=0)
+                # Normalize to sum to 1
+                importance_values = importance_values / importance_values.sum()
+                feature_importance = dict(zip(features.columns, importance_values))
+        
+        # Add cross-validation results if applicable
+        if use_cross_validation:
+            metrics['cv_mean_score'] = cv_scores.mean()
+            metrics['cv_std_score'] = cv_scores.std()
+        
+        # Prepare sample of predictions for visualization
+        sample_indices = np.random.choice(len(y_test), min(50, len(y_test)), replace=False)
+        
+        # If target was categorical, map predictions back to original categories for display
+        if is_categorical_target:
+            # Reverse the mapping for display
+            reverse_mapping = {idx: val for val, idx in target_mapping.items()}
+            
+            # For actual values, map from numeric back to original categories
+            actual_values = [reverse_mapping.get(val, val) for val in y_test.iloc[sample_indices].tolist()]
+            
+            # For predictions, we need to round to nearest integer first (for regression models)
+            # then map back to original categories
+            pred_values = [reverse_mapping.get(round(val), val) for val in y_pred[sample_indices].tolist()]
+            
+            predictions = {
+                'actual': actual_values,
+                'predicted': pred_values,
+                'categorical_mapping': target_mapping  # Include the mapping for reference
+            }
+        else:
+            # For numeric targets, use values directly
+            predictions = {
+                'actual': y_test.iloc[sample_indices].tolist(),
+                'predicted': y_pred[sample_indices].tolist()
+            }
+        
+        # Save the trained model
+        model_info = {
+            'is_categorical_target': is_categorical_target,
+            'target_mapping': target_mapping if is_categorical_target else {}
+        }
+        save_model(dataset_id, model, target_column, model_type, metrics, model_info)
+        
+        # Return the results
+        return jsonify({
+            "success": True,
+            "target_column": target_column,
+            "model_type": model_type,
+            "params": params,
+            "metrics": metrics,
+            "feature_importance": feature_importance,
+            "predictions": predictions,
+            "is_categorical_target": is_categorical_target,
+            "target_mapping": target_mapping if is_categorical_target else {}
+        })
+    
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        app.logger.error(f"Error training model: {str(e)}")
+        return jsonify({"success": False, "error": f"Error training model: {str(e)}"})
 
+def initialize_model(model_type, params):
+    """
+    Initialize a machine learning model based on the given type and parameters.
+    
+    Args:
+        model_type: Type of model to initialize
+        params: Parameters for the model
+        
+    Returns:
+        Initialized model
+    """
+    if model_type == 'LinearRegression':
+        return LinearRegression(
+            fit_intercept=params.get('fit_intercept', True),
+            normalize=params.get('normalize', False)
+        )
+    elif model_type == 'RandomForest':
+        return RandomForestRegressor(
+            n_estimators=params.get('n_estimators', 100),
+            max_depth=params.get('max_depth', None),
+            min_samples_split=params.get('min_samples_split', 2),
+            min_samples_leaf=params.get('min_samples_leaf', 1),
+            random_state=42
+        )
+    elif model_type == 'GradientBoosting':
+        return GradientBoostingRegressor(
+            n_estimators=params.get('n_estimators', 100),
+            learning_rate=params.get('learning_rate', 0.1),
+            max_depth=params.get('max_depth', 3),
+            subsample=params.get('subsample', 1.0),
+            random_state=42
+        )
+    elif model_type == 'SVM':
+        return SVR(
+            kernel=params.get('kernel', 'rbf'),
+            C=params.get('C', 1.0),
+            gamma=params.get('gamma', 'scale')
+        )
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
+
+def calculate_metrics(y_true, y_pred):
+    """
+    Calculate regression metrics.
+    
+    Args:
+        y_true: True values
+        y_pred: Predicted values
+        
+    Returns:
+        Dict of metrics
+    """
+    metrics = {
+        'r2_score': r2_score(y_true, y_pred),
+        'mean_absolute_error': mean_absolute_error(y_true, y_pred),
+        'mean_squared_error': mean_squared_error(y_true, y_pred),
+        'root_mean_squared_error': np.sqrt(mean_squared_error(y_true, y_pred))
+    }
+    return metrics
+
+def save_model(dataset_id, model, target_column, model_type, metrics, model_info=None):
+    """
+    Save the trained model for future use.
+    
+    Args:
+        dataset_id: ID of the dataset
+        model: Trained model
+        target_column: Target column name
+        model_type: Type of model
+        metrics: Model performance metrics
+        model_info: Additional model information like categorical mappings
+    """
+    # Create a models directory if it doesn't exist
+    os.makedirs('models', exist_ok=True)
+    
+    # Save the model with joblib
+    model_path = f"models/{dataset_id}_{target_column}_{model_type}.joblib"
+    joblib.dump(model, model_path)
+    
+    # Save any additional model info (like categorical mappings)
+    if model_info:
+        info_path = f"models/{dataset_id}_{target_column}_{model_type}_info.json"
+        with open(info_path, 'w') as f:
+            json.dump(model_info, f)
+    
+    # Save model metadata to the database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Create models table if it doesn't exist
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS models (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dataset_id TEXT NOT NULL,
+        target_column TEXT NOT NULL,
+        model_type TEXT NOT NULL,
+        model_path TEXT NOT NULL,
+        metrics TEXT NOT NULL,
+        model_info TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    
+    # Insert model metadata
+    cursor.execute('''
+    INSERT INTO models (dataset_id, target_column, model_type, model_path, metrics, model_info)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ''', (
+        dataset_id, 
+        target_column, 
+        model_type, 
+        model_path, 
+        json.dumps(metrics),
+        json.dumps(model_info) if model_info else None
+    ))
+    
+    conn.commit()
+    conn.close()
 
 @app.route('/api/insights', methods=['POST'])
 def generate_insights():

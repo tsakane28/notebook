@@ -1,70 +1,168 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Data - AI in Education Survey Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-</head>
-<body>
-    <header>
-        <h1>AI in Education Survey Dashboard</h1>
-        <nav>
-            <ul>
-                <li><a href="{{ url_for('index') }}">Home</a></li>
-                <li><a href="{{ url_for('upload_file') }}" class="active">Upload Data</a></li>
-            </ul>
-        </nav>
-    </header>
-    
-    <main class="upload-container">
-        <section class="upload-section">
-            <h2>Upload Survey Data</h2>
-            
-            {% with messages = get_flashed_messages() %}
-            {% if messages %}
-            <div class="flash-messages">
-                {% for message in messages %}
-                <div class="message">{{ message }}</div>
-                {% endfor %}
+{% extends "base.html" %}
+
+{% block title %}Upload Data - Data Analytics Dashboard{% endblock %}
+
+{% block nav_upload %}font-bold border-b-2 border-white{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+        <h2 class="text-3xl font-bold mb-6 text-primary text-center">Upload Your Data</h2>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="bg-danger bg-opacity-20 text-danger p-4 rounded-md">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <div id="upload-error" class="mb-6 hidden">
+            <div class="bg-danger bg-opacity-20 text-danger p-4 rounded-md"></div>
+        </div>
+        
+        <form id="upload-form" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+            <div class="space-y-2">
+                <label for="file" class="block text-gray-700 font-medium">Select CSV File:</label>
+                <div class="flex items-center justify-center w-full">
+                    <label class="flex flex-col w-full h-32 border-2 border-dashed border-primary-light rounded-lg cursor-pointer hover:bg-primary-light hover:bg-opacity-10 transition-colors">
+                        <div class="flex flex-col items-center justify-center pt-7">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-primary mb-2"></i>
+                            <p class="text-sm text-gray-600">Drag your file here or click to browse</p>
+                            <p class="text-xs text-gray-500 mt-1">(CSV files only)</p>
+                        </div>
+                        <input type="file" id="file" name="file" accept=".csv" class="hidden" required>
+                    </label>
+                </div>
+                <p id="file-name" class="mt-2 text-sm text-gray-600"></p>
             </div>
-            {% endif %}
-            {% endwith %}
             
-            <div class="upload-form">
-                <form method="POST" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label for="file">Select CSV File:</label>
-                        <input type="file" id="file" name="file" accept=".csv" required>
-                    </div>
-                    
-                    <div class="form-info">
-                        <h3>Required Format</h3>
-                        <p>CSV file must include the following columns:</p>
-                        <ul>
-                            <li>Level of Study</li>
-                            <li>Faculty</li>
-                            <li>AI Familiarity</li>
-                        </ul>
-                        <p>Additional recommended columns:</p>
-                        <ul>
-                            <li>Usage Frequency</li>
-                            <li>AI Tools Used (comma separated)</li>
-                            <li>Challenges (comma separated)</li>
-                            <li>Improves Learning</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="submit-btn">Upload and Process</button>
-                    </div>
-                </form>
+            <div class="bg-light rounded-lg p-5 border border-gray-200">
+                <h3 class="text-lg font-bold mb-3 text-primary-dark">Required Format</h3>
+                <p class="text-gray-700 mb-2">Your CSV file should include columns with:</p>
+                <ul class="list-disc list-inside mb-4 text-gray-600 space-y-1">
+                    <li>Numerical data (for quantitative analysis)</li>
+                    <li>Categorical data (for grouping and filtering)</li>
+                    <li>Headers in the first row</li>
+                </ul>
+                <p class="text-sm text-gray-500">The dashboard will automatically detect data types and generate appropriate visualizations.</p>
             </div>
-        </section>
-    </main>
-    
-    <footer>
-        <p>Created for the AI in Education Survey Analysis</p>
-    </footer>
-</body>
-</html> 
+            
+            <div class="text-center">
+                <button type="submit" id="submit-btn" class="bg-primary text-white font-bold py-3 px-8 rounded-md shadow hover:bg-primary-dark transition-colors w-full md:w-auto">
+                    <i class="fas fa-upload mr-2"></i>Upload and Process
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('file');
+        const fileUploadPlaceholder = document.querySelector('.file-upload-placeholder');
+        const fileUploadSelected = document.querySelector('.file-upload-selected');
+        const fileNameDisplay = document.getElementById('file-name');
+        const uploadForm = document.getElementById('upload-form');
+        const uploadError = document.getElementById('upload-error');
+        const errorText = uploadError.querySelector('div');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        
+        // Handle file selection display
+        fileInput.addEventListener('change', function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : 'No file selected';
+            fileNameDisplay.textContent = 'Selected file: ' + fileName;
+            
+            if (fileUploadSelected && fileUploadPlaceholder) {
+                if (e.target.files[0]) {
+                    fileUploadPlaceholder.classList.add('hidden');
+                    fileUploadSelected.classList.remove('hidden');
+                } else {
+                    fileUploadPlaceholder.classList.remove('hidden');
+                    fileUploadSelected.classList.add('hidden');
+                }
+            }
+        });
+        
+        // Handle form submission
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading overlay
+            if (loadingOverlay) {
+                loadingText.textContent = 'Processing your file...';
+                loadingOverlay.classList.remove('hidden');
+            }
+            
+            // Hide previous errors
+            uploadError.classList.add('hidden');
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Uploading...';
+            
+            // Create FormData object
+            const formData = new FormData(uploadForm);
+            
+            // Send AJAX request
+            fetch(uploadForm.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                // Check if the response is a redirect
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return null;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data === null) return; // Was redirected
+                
+                if (data.success) {
+                    // Redirect to dashboard
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                    } else if (data.dataset_id) {
+                        window.location.href = '/dashboard/' + data.dataset_id;
+                    }
+                } else {
+                    // Show error
+                    errorText.textContent = data.error || 'An error occurred during upload.';
+                    uploadError.classList.remove('hidden');
+                    
+                    // Hide loading overlay
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+                    
+                    // Reset button
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-upload mr-2"></i>Upload and Process';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorText.textContent = 'Network error occurred. Please try again.';
+                uploadError.classList.remove('hidden');
+                
+                // Hide loading overlay
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('hidden');
+                }
+                
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-upload mr-2"></i>Upload and Process';
+            });
+        });
+    });
+</script>
+{% endblock %} 

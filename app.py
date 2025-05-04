@@ -35,9 +35,14 @@ def index():
     return render_template('index.html', current_year=datetime.now().year)
 
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
-    """Handle file upload and validation"""
+    """Handle file upload form and validation"""
+    if request.method == 'GET':
+        # Render the upload form for GET requests
+        return render_template('upload.html', current_year=datetime.now().year)
+    
+    # Process the file upload for POST requests
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file part'}), 400
     

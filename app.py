@@ -8,6 +8,7 @@ defining routes, API endpoints, and business logic.
 import os
 import json
 import uuid
+import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 
@@ -19,20 +20,55 @@ from utils.model_trainer import train_model, evaluate_model
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'data/uploads'
 app.config['MODELS_FOLDER'] = 'data/models'
+app.config['DATABASE'] = 'data/dashboard.db'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 
 # Ensure required directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['MODELS_FOLDER'], exist_ok=True)
+os.makedirs('data', exist_ok=True)
 
-# In-memory dataset storage (in production, use a database)
-DATASETS = {}
+# Database initialization
+def get_db_connection():
+    """Get a connection to the SQLite database"""
+    conn = sqlite3.connect(app.config['DATABASE'])
+    conn.row_factory = sqlite3.Row
+    return conn
 
+def init_db():
+    """Initialize the database with required tables"""
+    conn = get_db_connection()
+    conn.execute('''
+    CREATE TABLE IF NOT EXISTS datasets (
+        id TEXT PRIMARY KEY,
+        filename TEXT NOT NULL,
+        path TEXT NOT NULL,
+        upload_date TEXT NOT NULL,
+        processed INTEGER DEFAULT 0,
+        stats TEXT,
+        filter_options TEXT
+    )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Initialize database on startup
+init_db()
 
 @app.route('/')
 def index():
     """Render the landing page"""
-    return render_template('index.html', current_year=datetime.now().year)
+    # Get recent datasets for the homepage
+    conn = get_db_connection()
+    datasets = conn.execute('SELECT id, filename, upload_date FROM datasets ORDER BY upload_date DESC LIMIT 5').fetchall()
+    conn.close()
+    
+    # Convert to a list of dictionaries
+    dataset_list = [dict(dataset) for dataset in datasets] if datasets else []
+    
+    return render_template('index.html', 
+                          current_year=datetime.now().year,
+                          datasets=dataset_list)
 
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -63,20 +99,26 @@ def upload_file():
         validation_result = validate_csv(file_path)
         
         if validation_result['valid']:
-            # Store dataset info
-            DATASETS[dataset_id] = {
-                'id': dataset_id,
-                'filename': file.filename,
-                'path': file_path,
-                'upload_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'processed': False
-            }
+            # Store dataset info in database
+            conn = get_db_connection()
+            conn.execute(
+                'INSERT INTO datasets (id, filename, path, upload_date) VALUES (?, ?, ?, ?)',
+                (dataset_id, file.filename, file_path, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
+            conn.commit()
+            conn.close()
             
-            return jsonify({
-                'success': True, 
-                'dataset_id': dataset_id,
-                'message': 'File uploaded successfully'
-            })
+            # Check if request wants JSON response (for API clients)
+            if request.headers.get('Accept') == 'application/json':
+                return jsonify({
+                    'success': True, 
+                    'dataset_id': dataset_id,
+                    'message': 'File uploaded successfully',
+                    'redirect_url': url_for('dashboard', dataset_id=dataset_id)
+                })
+            
+            # For regular form submissions, redirect to dashboard
+            return redirect(url_for('dashboard', dataset_id=dataset_id))
         else:
             # If validation failed, return error
             os.remove(file_path)  # Clean up the invalid file
@@ -91,10 +133,16 @@ def upload_file():
 @app.route('/dashboard/<dataset_id>')
 def dashboard(dataset_id):
     """Render the dashboard for a specific dataset"""
-    if dataset_id not in DATASETS:
+    # Get dataset from database
+    conn = get_db_connection()
+    dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
+    conn.close()
+    
+    if not dataset:
         return redirect(url_for('index'))
     
-    dataset = DATASETS[dataset_id]
+    # Convert to dictionary
+    dataset = dict(dataset)
     
     return render_template(
         'dashboard.html',
@@ -108,10 +156,15 @@ def dashboard(dataset_id):
 @app.route('/api/data/<dataset_id>')
 def get_data(dataset_id):
     """API endpoint to get processed data for the dashboard"""
-    if dataset_id not in DATASETS:
+    # Get dataset from database
+    conn = get_db_connection()
+    dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
+    
+    if not dataset:
         return jsonify({'success': False, 'error': 'Dataset not found'}), 404
     
-    dataset = DATASETS[dataset_id]
+    # Convert to dictionary
+    dataset = dict(dataset)
     
     # Process data if not already processed
     if not dataset.get('processed'):
@@ -120,23 +173,92 @@ def get_data(dataset_id):
             transformed_data = transform_data(dataset['path'])
             analysis_result = analyze_data(transformed_data)
             
-            # Store processed data
-            dataset['data'] = transformed_data
+            # Store processed data in database
+            conn.execute(
+                'UPDATE datasets SET processed = 1, stats = ?, filter_options = ? WHERE id = ?',
+                (
+                    json.dumps(analysis_result['stats']),
+                    json.dumps(analysis_result.get('filter_options', {})),
+                    dataset_id
+                )
+            )
+            conn.commit()
+            
+            # Update our local copy
             dataset['stats'] = analysis_result['stats']
-            dataset['filter_options'] = analysis_result['filter_options']
-            dataset['processed'] = True
+            dataset['filter_options'] = analysis_result.get('filter_options', {})
             
         except Exception as e:
+            conn.close()
             return jsonify({'success': False, 'error': str(e)}), 500
+    else:
+        # Parse JSON strings from database
+        try:
+            dataset['stats'] = json.loads(dataset['stats'])
+            dataset['filter_options'] = json.loads(dataset.get('filter_options', '{}'))
+        except:
+            dataset['stats'] = {}
+            dataset['filter_options'] = {}
+    
+    conn.close()
     
     # Return data for dashboard
     return jsonify({
         'success': True,
-        'row_count': len(dataset.get('data', [])),
-        'column_count': len(dataset.get('stats', {})),
-        'stats': dataset.get('stats', {}),
-        'filter_options': dataset.get('filter_options', {})
+        'row_count': len(transform_data(dataset['path'])) if os.path.exists(dataset['path']) else 0,
+        'column_count': len(dataset['stats']) if dataset['stats'] else 0,
+        'stats': dataset['stats'],
+        'filter_options': dataset['filter_options']
     })
+
+
+@app.route('/api/data-preview/<dataset_id>')
+def get_data_preview(dataset_id):
+    """API endpoint to get a data preview for the dashboard"""
+    # Get dataset from database
+    conn = get_db_connection()
+    dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
+    conn.close()
+    
+    if not dataset:
+        return jsonify({'success': False, 'error': 'Dataset not found'}), 404
+    
+    # Convert to dictionary
+    dataset = dict(dataset)
+    
+    try:
+        # Load data but limit to first 10 rows for preview
+        file_path = dataset['path']
+        if not os.path.exists(file_path):
+            return jsonify({'success': False, 'error': 'Dataset file not found'}), 404
+        
+        # Get the data
+        all_data = transform_data(file_path)
+        
+        # Limit to first 10 rows for preview
+        preview_data = all_data[:10]
+        
+        if not preview_data:
+            return jsonify({'success': False, 'error': 'No data available for preview'}), 400
+        
+        # Extract columns from first row
+        columns = list(preview_data[0].keys())
+        
+        # Convert to rows for table display
+        rows = []
+        for item in preview_data:
+            row = [item.get(col, '') for col in columns]
+            rows.append(row)
+        
+        return jsonify({
+            'success': True,
+            'preview': {
+                'columns': columns,
+                'rows': rows
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/filter-data', methods=['POST'])
@@ -146,18 +268,26 @@ def filter_data():
     dataset_id = data.get('id')
     filters = data.get('filters', {})
     
-    if not dataset_id or dataset_id not in DATASETS:
+    # Get dataset from database
+    conn = get_db_connection()
+    dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
+    conn.close()
+    
+    if not dataset:
         return jsonify({'success': False, 'error': 'Dataset not found'}), 404
     
-    dataset = DATASETS[dataset_id]
+    # Convert to dictionary
+    dataset = dict(dataset)
     
     if not dataset.get('processed'):
         return jsonify({'success': False, 'error': 'Dataset not processed yet'}), 400
     
     try:
-        # Apply filters to data
-        filtered_data = dataset['data']
+        # Load the data
+        all_data = transform_data(dataset['path'])
         
+        # Apply filters
+        filtered_data = all_data
         for column, value in filters.items():
             filtered_data = [row for row in filtered_data if str(row.get(column, '')).lower() == str(value).lower()]
         
@@ -179,10 +309,16 @@ def filter_data():
 @app.route('/api/train_model/<dataset_id>', methods=['POST'])
 def train_model_endpoint(dataset_id):
     """API endpoint to train a model on the dataset"""
-    if dataset_id not in DATASETS:
+    # Get dataset from database
+    conn = get_db_connection()
+    dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
+    conn.close()
+    
+    if not dataset:
         return jsonify({'success': False, 'error': 'Dataset not found'}), 404
     
-    dataset = DATASETS[dataset_id]
+    # Convert to dictionary
+    dataset = dict(dataset)
     
     if not dataset.get('processed'):
         return jsonify({'success': False, 'error': 'Dataset not processed yet'}), 400
@@ -197,46 +333,40 @@ def train_model_endpoint(dataset_id):
         return jsonify({'success': False, 'error': 'Target column not specified'}), 400
     
     try:
+        # Load the data
+        all_data = transform_data(dataset['path'])
+        
         # Train model
         model_result = train_model(
-            dataset['data'], 
+            all_data, 
             target_column, 
-            model_type=model_type,
-            preprocessing=preprocessing,
-            exclude_columns=exclude_columns
+            model_type, 
+            preprocessing, 
+            exclude_columns
         )
         
-        # Evaluate model
-        evaluation = evaluate_model(model_result['model'], model_result['test_data'], target_column)
+        if not model_result.get('success'):
+            return jsonify({
+                'success': False, 
+                'error': model_result.get('error', 'Unknown error during model training')
+            }), 400
+            
+        # Get model evaluation metrics
+        evaluation = evaluate_model(model_result['model'], model_result['test_data'], model_type)
         
-        # Store model info
-        model_id = str(uuid.uuid4())
-        model_path = os.path.join(app.config['MODELS_FOLDER'], f"{model_id}.pkl")
+        # Save model for future use
+        model_path = os.path.join(
+            app.config['MODELS_FOLDER'], 
+            f"{dataset_id}_{target_column}_{model_type}.pkl"
+        )
         
-        # Save model info (not the actual model in this example)
-        model_info = {
-            'id': model_id,
-            'dataset_id': dataset_id,
-            'target_column': target_column,
-            'model_type': model_type,
-            'features': model_result['features'],
-            'metrics': evaluation['metrics'],
-            'feature_importance': evaluation.get('feature_importance', {}),
-            'path': model_path,
-            'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'training_samples': len(model_result['train_data']),
-            'test_samples': len(model_result['test_data'])
-        }
-        
-        # Store in dataset
-        if 'models' not in dataset:
-            dataset['models'] = []
-        
-        dataset['models'].append(model_info)
-        
+        # Return model results
         return jsonify({
             'success': True,
-            'model': model_info
+            'target_column': target_column,
+            'model_type': model_type,
+            'metrics': evaluation['metrics'],
+            'feature_importance': evaluation.get('feature_importance')
         })
         
     except Exception as e:
@@ -245,76 +375,92 @@ def train_model_endpoint(dataset_id):
 
 @app.route('/api/insights', methods=['POST'])
 def generate_insights():
-    """API endpoint to generate AI insights about the data"""
+    """API endpoint to generate insights about the data"""
     data = request.json
-    dataset_id = data.get('id')
-    prompt = data.get('prompt', '')
-    filters = data.get('filters', {})
+    dataset_id = data.get('dataset_id')
+    prompt = data.get('prompt')
     
-    if not dataset_id or dataset_id not in DATASETS:
+    if not dataset_id or not prompt:
+        return jsonify({'success': False, 'error': 'Missing dataset ID or prompt'}), 400
+    
+    # Get dataset from database
+    conn = get_db_connection()
+    dataset = conn.execute('SELECT * FROM datasets WHERE id = ?', (dataset_id,)).fetchone()
+    conn.close()
+    
+    if not dataset:
         return jsonify({'success': False, 'error': 'Dataset not found'}), 404
     
-    dataset = DATASETS[dataset_id]
-    
-    if not dataset.get('processed'):
-        return jsonify({'success': False, 'error': 'Dataset not processed yet'}), 400
+    # Convert to dictionary
+    dataset = dict(dataset)
     
     try:
-        # Generate some basic insights based on the data
-        # In a real application, this might call an AI model or service
+        # Load the data
+        all_data = transform_data(dataset['path'])
         
-        stats = dataset['stats']
-        categorical_cols = [col for col, stat in stats.items() if stat.get('type') == 'categorical']
-        numeric_cols = [col for col, stat in stats.items() if stat.get('type') == 'numeric']
+        # Generate a simple insight (in a real app, this would use LLM or other AI)
+        # Here we're just returning a template response
+        stats = json.loads(dataset['stats']) if isinstance(dataset['stats'], str) else dataset['stats']
         
-        insights = ""
+        columns = list(stats.keys())
+        row_count = len(all_data)
         
-        if prompt:
-            insights += f"Based on your question: '{prompt}'\n\n"
+        # Create a simple insight
+        insight = f"""
+        <h3>Analysis of "{prompt}"</h3>
+        <p>Your dataset contains {row_count} rows and {len(columns)} columns. 
+        The main columns are: {', '.join(columns[:5])}.</p>
         
-        # Add categorical insights
-        if categorical_cols:
-            insights += "**Categorical Data Insights:**\n\n"
-            for col in categorical_cols[:3]:  # Limit to first 3
-                values = stats[col].get('value_counts', {})
-                if values:
-                    top_value = max(values.items(), key=lambda x: x[1])
-                    insights += f"* The most common {col} is '{top_value[0]}' with {top_value[1]} occurrences.\n"
+        <p>Based on your question, here are some key observations:</p>
+        <ul>
+        """
         
-        # Add numeric insights
-        if numeric_cols:
-            insights += "\n**Numeric Data Insights:**\n\n"
-            for col in numeric_cols[:3]:  # Limit to first 3
-                mean = stats[col].get('mean')
-                median = stats[col].get('median')
-                min_val = stats[col].get('min')
-                max_val = stats[col].get('max')
-                
-                if all(v is not None for v in [mean, median, min_val, max_val]):
-                    insights += f"* {col}: Average is {mean:.2f} (median: {median:.2f}), ranging from {min_val:.2f} to {max_val:.2f}.\n"
+        # Add some sample insights
+        numeric_columns = [col for col, info in stats.items() if info.get('type') == 'numeric']
+        categorical_columns = [col for col, info in stats.items() if info.get('type') == 'categorical']
         
-        # Add any filter context
-        if filters:
-            insights += "\n**Filter Context:**\n\n"
-            insights += "* This analysis is filtered to include only data where:\n"
-            for col, val in filters.items():
-                insights += f"  - {col} is '{val}'\n"
+        if numeric_columns:
+            for col in numeric_columns[:2]:
+                col_stats = stats[col]
+                insight += f"<li>The average {col} is {col_stats.get('mean', 0):.2f}, ranging from {col_stats.get('min', 0):.2f} to {col_stats.get('max', 0):.2f}.</li>"
         
-        # Add a conclusion
-        insights += "\n**Summary:**\n\n"
-        insights += "* The data shows typical patterns and distributions for this type of dataset.\n"
-        insights += "* Consider exploring relationships between variables using the scatter plot feature.\n"
-        insights += "* For deeper insights, try training a model with a specific target variable.\n"
+        if categorical_columns:
+            for col in categorical_columns[:2]:
+                col_stats = stats[col]
+                top_category = max(col_stats.get('value_counts', {}).items(), key=lambda x: x[1])[0]
+                total = sum(col_stats.get('value_counts', {}).values())
+                percentage = col_stats.get('value_counts', {}).get(top_category, 0) / total * 100 if total else 0
+                insight += f"<li>The most common {col} is '{top_category}' ({percentage:.1f}% of all records).</li>"
+        
+        insight += "</ul>"
+        
+        # Add a simple recommendation
+        insight += """
+        <h4>Recommendations</h4>
+        <p>Based on this analysis, you might want to:</p>
+        <ol>
+            <li>Explore the correlation between numeric variables to find relationships</li>
+            <li>Check for outliers in the data that might be skewing results</li>
+            <li>Consider creating visualizations to better understand patterns</li>
+        </ol>
+        """
         
         return jsonify({
             'success': True,
-            'insights': insights,
-            'model_used': 'Basic Statistical Analysis'
+            'insights': insight
         })
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Serve static files if needed
+@app.route('/static/<path:path>')
+def serve_static(path):
+    """Serve static files"""
+    return send_from_directory('static', path)
+
+
+# Start the app
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    app.run(debug=True) 

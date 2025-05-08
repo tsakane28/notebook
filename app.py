@@ -19,6 +19,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 import joblib
+import pickle
 
 # Local imports
 from utils.data_processor import validate_csv, transform_data, analyze_data
@@ -30,6 +31,7 @@ app.config['UPLOAD_FOLDER'] = 'data/uploads'
 app.config['MODELS_FOLDER'] = 'data/models'
 app.config['DATABASE'] = 'data/dashboard.db'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
+app.secret_key = os.urandom(24)  # For session management
 
 # Ensure required directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -62,6 +64,16 @@ def init_db():
 
 # Initialize database on startup
 init_db()
+
+# Create a directory for storing models if it doesn't exist
+if not os.path.exists('models'):
+    os.makedirs('models')
+
+# Database of datasets (in-memory for demo)
+datasets = {}
+
+# Database of models (in-memory for demo)
+models = {}
 
 @app.route('/')
 def index():
@@ -333,6 +345,7 @@ def train_model(dataset_id):
         params = data.get('params', {})
         test_size = data.get('test_size', 0.2)
         use_cross_validation = data.get('use_cross_validation', False)
+        model_name = data.get('model_name', f"{target_column}_{model_type}_model")
         
         # Validate inputs
         if not target_column:
@@ -472,11 +485,13 @@ def train_model(dataset_id):
             'is_categorical_target': is_categorical_target,
             'target_mapping': target_mapping if is_categorical_target else {}
         }
-        save_model(dataset_id, model, target_column, model_type, metrics, model_info)
+        model_id = save_model(dataset_id, model, target_column, model_type, metrics, model_name, model_info)
         
         # Return the results
         return jsonify({
             "success": True,
+            "model_id": model_id,
+            "model_name": model_name,
             "target_column": target_column,
             "model_type": model_type,
             "params": params,
@@ -551,7 +566,7 @@ def calculate_metrics(y_true, y_pred):
     }
     return metrics
 
-def save_model(dataset_id, model, target_column, model_type, metrics, model_info=None):
+def save_model(dataset_id, model, target_column, model_type, metrics, model_name, model_info=None):
     """
     Save the trained model for future use.
     
@@ -561,54 +576,48 @@ def save_model(dataset_id, model, target_column, model_type, metrics, model_info
         target_column: Target column name
         model_type: Type of model
         metrics: Model performance metrics
+        model_name: User-provided name for the model
         model_info: Additional model information like categorical mappings
     """
     # Create a models directory if it doesn't exist
     os.makedirs('models', exist_ok=True)
     
-    # Save the model with joblib
-    model_path = f"models/{dataset_id}_{target_column}_{model_type}.joblib"
-    joblib.dump(model, model_path)
+    # Generate a unique model ID
+    model_id = str(uuid.uuid4())
     
-    # Save any additional model info (like categorical mappings)
+    # Save the model with pickle
+    model_path = f"models/{model_id}.pkl"
+    with open(model_path, 'wb') as f:
+        pickle.dump(model, f)
+    
+    # Current timestamp for created_at
+    now = datetime.now().isoformat()
+    
+    # Create model info
+    model_data = {
+        'id': model_id,
+        'dataset_id': dataset_id,
+        'name': model_name,
+        'target_column': target_column,
+        'model_type': model_type,
+        'model_path': model_path,
+        'metrics': metrics,
+        'created_at': now
+    }
+    
+    # Add any additional model info
     if model_info:
-        info_path = f"models/{dataset_id}_{target_column}_{model_type}_info.json"
-        with open(info_path, 'w') as f:
-            json.dump(model_info, f)
+        model_data.update(model_info)
     
-    # Save model metadata to the database
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    # Save model info to JSON file
+    info_path = f"models/{model_id}_info.json"
+    with open(info_path, 'w') as f:
+        json.dump(model_data, f, indent=2)
     
-    # Create models table if it doesn't exist
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS models (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        dataset_id TEXT NOT NULL,
-        target_column TEXT NOT NULL,
-        model_type TEXT NOT NULL,
-        model_path TEXT NOT NULL,
-        metrics TEXT NOT NULL,
-        model_info TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
+    # Add to in-memory models database
+    models[model_id] = model_data
     
-    # Insert model metadata
-    cursor.execute('''
-    INSERT INTO models (dataset_id, target_column, model_type, model_path, metrics, model_info)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ''', (
-        dataset_id, 
-        target_column, 
-        model_type, 
-        model_path, 
-        json.dumps(metrics),
-        json.dumps(model_info) if model_info else None
-    ))
-    
-    conn.commit()
-    conn.close()
+    return model_id
 
 @app.route('/api/insights', methods=['POST'])
 def generate_insights():
@@ -697,6 +706,82 @@ def serve_static(path):
     """Serve static files"""
     return send_from_directory('static', path)
 
+@app.route('/api/saved_models/<dataset_id>')
+def get_saved_models(dataset_id):
+    # Get all models for this dataset
+    dataset_models = [model for model_id, model in models.items() if model['dataset_id'] == dataset_id]
+    
+    # Sort by creation date, newest first
+    dataset_models.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    
+    return jsonify({
+        'success': True,
+        'models': dataset_models
+    })
+
+@app.route('/api/model/<model_id>')
+def get_model(model_id):
+    # Check if model exists
+    if model_id not in models:
+        return jsonify({
+            'success': False,
+            'error': 'Model not found'
+        })
+    
+    # Return model info
+    return jsonify({
+        'success': True,
+        **models[model_id]
+    })
+
+@app.route('/api/model/<model_id>', methods=['DELETE'])
+def delete_model(model_id):
+    # Check if model exists
+    if model_id not in models:
+        return jsonify({
+            'success': False,
+            'error': 'Model not found'
+        })
+    
+    try:
+        # Delete model file
+        model_path = os.path.join('models', f'{model_id}.pkl')
+        if os.path.exists(model_path):
+            os.remove(model_path)
+        
+        # Delete model info file
+        model_info_path = os.path.join('models', f'{model_id}_info.json')
+        if os.path.exists(model_info_path):
+            os.remove(model_info_path)
+        
+        # Remove from in-memory database
+        models.pop(model_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Model deleted successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error deleting model: {str(e)}'
+        })
+
+# Load saved models on startup
+def load_saved_models():
+    if os.path.exists('models'):
+        for filename in os.listdir('models'):
+            if filename.endswith('_info.json'):
+                try:
+                    model_id = filename.replace('_info.json', '')
+                    with open(os.path.join('models', filename), 'r') as f:
+                        model_info = json.load(f)
+                        models[model_id] = model_info
+                except Exception as e:
+                    print(f"Error loading model {filename}: {e}")
+
+# Call on startup
+load_saved_models()
 
 # Start the app
 if __name__ == '__main__':

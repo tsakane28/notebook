@@ -150,19 +150,36 @@ function displayDataPreview(preview, filteredRows = null) {
         `<th class="px-3 py-2 border-b-2 border-gray-300 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${col}</th>`
     ).join('');
     
+    // Apply pagination if needed
+    let displayedRows = rowsToDisplay;
+    
+    if (window.previewPagination && rowsToDisplay.length > window.previewPagination.rowsPerPage) {
+        const start = window.previewPagination.page * window.previewPagination.rowsPerPage;
+        const end = start + window.previewPagination.rowsPerPage;
+        displayedRows = rowsToDisplay.slice(start, end);
+        
+        // Update total pages
+        window.previewPagination.totalPages = Math.ceil(rowsToDisplay.length / window.previewPagination.rowsPerPage);
+        
+        // Update pagination buttons
+        updatePaginationButtons();
+    }
+    
     // Populate table with data
-    previewBody.innerHTML = rowsToDisplay.map(row => 
+    previewBody.innerHTML = displayedRows.map(row => 
         `<tr class="hover:bg-gray-50">
-            ${row.map(cell => `<td class="px-3 py-2 border-b border-gray-200 text-sm">${cell || '-'}</td>`).join('')}
+            ${row.map(cell => `<td class="px-3 py-2 border-b border-gray-200 text-sm">${cell !== null ? cell : '-'}</td>`).join('')}
         </tr>`
     ).join('');
     
     // Update row count
-    if (previewCount) previewCount.textContent = rowsToDisplay.length;
-    if (totalCount) totalCount.textContent = preview.rows.length;
+    if (previewCount) previewCount.textContent = displayedRows.length;
+    if (totalCount) totalCount.textContent = rowsToDisplay.length;
     
-    // Populate column select dropdown
-    populateSearchColumnDropdown(preview.columns);
+    // Populate column select dropdown if needed
+    if (!document.querySelector('#data-search-column option:not([value="all"])')) {
+        populateSearchColumnDropdown(preview.columns);
+    }
 }
 
 // Populate the search column dropdown
@@ -195,7 +212,13 @@ function initDataPreviewSearch() {
     searchInput.addEventListener('input', performDataSearch);
     columnSelect.addEventListener('change', performDataSearch);
     
-    // Setup pagination
+    // Initialize pagination
+    window.previewPagination = {
+        page: 0,
+        rowsPerPage: 10,
+        totalPages: Math.ceil((window.previewData?.rows?.length || 0) / 10)
+    };
+    
     setupPagination();
 }
 
@@ -217,20 +240,27 @@ function performDataSearch() {
     
     // Filter rows based on search term
     const filteredRows = window.previewData.rows.filter(row => {
-        if (columnIndex >= 0) {
+        if (columnIndex >= 0 && columnIndex < row.length) {
             // Search in specific column
             const cell = String(row[columnIndex] || '').toLowerCase();
             return cell.includes(searchTerm);
-        } else {
+        } else if (columnIndex === -1) {
             // Search in all columns
             return row.some(cell => 
                 String(cell || '').toLowerCase().includes(searchTerm)
             );
         }
+        return false;
     });
     
     // Display filtered data
     displayDataPreview(window.previewData, filteredRows);
+    
+    // Reset pagination
+    if (window.previewPagination) {
+        window.previewPagination.page = 0;
+        updatePaginationButtons();
+    }
 }
 
 // Setup pagination for data preview
@@ -239,13 +269,6 @@ function setupPagination() {
     const nextButton = document.getElementById('data-preview-next');
     
     if (!prevButton || !nextButton) return;
-    
-    // Store pagination state
-    window.previewPagination = {
-        page: 0,
-        rowsPerPage: 10,
-        totalPages: Math.ceil((window.previewData?.rows?.length || 0) / 10)
-    };
     
     // Add event listeners
     prevButton.addEventListener('click', () => changePage(-1));
@@ -270,16 +293,17 @@ function changePage(direction) {
     // Update current page
     window.previewPagination.page = newPage;
     
-    // Get rows for current page
-    const start = newPage * window.previewPagination.rowsPerPage;
-    const end = start + window.previewPagination.rowsPerPage;
-    const pagedRows = window.previewData.rows.slice(start, end);
+    // Get currently filtered rows or all rows
+    const searchInput = document.getElementById('data-search');
+    const hasSearchTerm = searchInput && searchInput.value.trim().length > 0;
     
-    // Display paged data
-    displayDataPreview(window.previewData, pagedRows);
-    
-    // Update button states
-    updatePaginationButtons();
+    if (hasSearchTerm) {
+        // Re-run the search to get filtered rows
+        performDataSearch();
+    } else {
+        // Display with pagination
+        displayDataPreview(window.previewData);
+    }
 }
 
 // Update pagination button states
@@ -291,9 +315,11 @@ function updatePaginationButtons() {
     
     // Disable/enable previous button
     prevButton.disabled = window.previewPagination.page === 0;
+    prevButton.classList.toggle('opacity-50', window.previewPagination.page === 0);
     
     // Disable/enable next button
     nextButton.disabled = window.previewPagination.page >= window.previewPagination.totalPages - 1;
+    nextButton.classList.toggle('opacity-50', window.previewPagination.page >= window.previewPagination.totalPages - 1);
 }
 
 // Show data preview empty state
@@ -908,8 +934,19 @@ function setupEventListeners(datasetId) {
         });
     }
     
+    // Refresh models button
+    const refreshModelsBtn = document.getElementById('refresh-models-btn');
+    if (refreshModelsBtn) {
+        refreshModelsBtn.addEventListener('click', function() {
+            loadSavedModels(datasetId);
+        });
+    }
+    
     // Setup scatter plot dialog
     setupScatterPlotDialog(datasetId);
+    
+    // Load saved models initially
+    loadSavedModels(datasetId);
 }
 
 // Toggle model parameters sections based on selected model type
@@ -933,8 +970,15 @@ function toggleModelParams(modelType) {
 
 // Train model with selected options
 function trainModel(datasetId) {
+    const modelName = document.getElementById('model-name').value.trim();
     const targetColumn = document.getElementById('target-column').value;
     const modelType = document.getElementById('model-type').value;
+    
+    // Basic validation
+    if (!modelName) {
+        showError('Please enter a model name');
+        return;
+    }
     
     if (!targetColumn) {
         showError('Please select a target column');
@@ -962,6 +1006,7 @@ function trainModel(datasetId) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+            model_name: modelName,
             target_column: targetColumn,
             model_type: modelType,
             params: params,
@@ -977,6 +1022,9 @@ function trainModel(datasetId) {
             
             // Store the model results for export
             window.modelResults = data;
+            
+            // Refresh the saved models list
+            loadSavedModels(datasetId);
         } else {
             showError(data.error || 'Error training model');
         }
@@ -986,11 +1034,14 @@ function trainModel(datasetId) {
         showError(`Error training model: ${error.message}`);
         
         // Show mock results for demo
-        const mockData = createMockModelResults(targetColumn, modelType, params);
+        const mockData = createMockModelResults(modelName, targetColumn, modelType, params);
         displayModelResults(mockData);
         
         // Store the model results for export
         window.modelResults = mockData;
+        
+        // Add mock model to saved models (for demo)
+        addMockSavedModel(mockData);
     });
 }
 
@@ -1468,7 +1519,10 @@ function exportModelResults() {
 }
 
 // Create mock model results for demo
-function createMockModelResults(targetColumn, modelType, params) {
+function createMockModelResults(modelName, targetColumn, modelType, params) {
+    // Use current date and time for the timestamp
+    const timestamp = new Date().toISOString();
+    
     // Determine if the target is AI adoption related
     const isAIAdoption = targetColumn.toLowerCase().includes('ai') || 
                           targetColumn.toLowerCase().includes('adoption');
@@ -1651,6 +1705,8 @@ function createMockModelResults(targetColumn, modelType, params) {
     
     return {
         success: true,
+        model_id: generateMockModelId(),
+        model_name: modelName,
         target_column: targetColumn,
         model_type: modelType,
         params: params,
@@ -1658,8 +1714,14 @@ function createMockModelResults(targetColumn, modelType, params) {
         feature_importance: featureImportance,
         predictions: predictions,
         is_categorical_target: isCategoricalTarget,
-        target_mapping: targetMapping
+        target_mapping: targetMapping,
+        created_at: timestamp
     };
+}
+
+// Generate a mock model ID
+function generateMockModelId() {
+    return 'model_' + Math.random().toString(36).substring(2, 15);
 }
 
 // Filter charts based on selected type
@@ -2616,4 +2678,245 @@ function createScatterChart(canvas, data, xAxis, yAxis, colorBy) {
             }
         }
     });
-} 
+}
+
+// Load saved models
+function loadSavedModels(datasetId) {
+    const loading = document.getElementById('saved-models-loading');
+    const empty = document.getElementById('saved-models-empty');
+    const container = document.getElementById('saved-models-container');
+    
+    if (!loading || !empty || !container) return;
+    
+    // Show loading state
+    loading.classList.remove('hidden');
+    empty.classList.add('hidden');
+    container.classList.add('hidden');
+    
+    fetch(`/api/saved_models/${datasetId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.models && data.models.length > 0) {
+                displaySavedModels(data.models);
+            } else {
+                showSavedModelsEmpty();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading saved models:', error);
+            
+            // For demo, show mock saved models
+            const mockModels = getMockSavedModels();
+            if (mockModels.length > 0) {
+                displaySavedModels(mockModels);
+            } else {
+                showSavedModelsEmpty();
+            }
+        });
+}
+
+// Display saved models in the table
+function displaySavedModels(models) {
+    const loading = document.getElementById('saved-models-loading');
+    const empty = document.getElementById('saved-models-empty');
+    const container = document.getElementById('saved-models-container');
+    const modelsList = document.getElementById('saved-models-list');
+    
+    if (!loading || !empty || !container || !modelsList) return;
+    
+    // Hide loading, show container
+    loading.classList.add('hidden');
+    empty.classList.add('hidden');
+    container.classList.remove('hidden');
+    
+    // Clear the list
+    modelsList.innerHTML = '';
+    
+    // Add each model to the list
+    models.forEach(model => {
+        const row = document.createElement('tr');
+        
+        // Format date
+        const createdDate = new Date(model.created_at);
+        const formattedDate = createdDate.toLocaleString();
+        
+        // Get primary metric
+        let primaryMetric = '';
+        let primaryMetricValue = '';
+        
+        if (model.metrics) {
+            if (model.is_categorical_target) {
+                primaryMetric = 'Accuracy';
+                primaryMetricValue = model.metrics.accuracy ? (model.metrics.accuracy * 100).toFixed(2) + '%' : 'N/A';
+            } else {
+                primaryMetric = 'R² Score';
+                primaryMetricValue = model.metrics.r2_score ? model.metrics.r2_score.toFixed(4) : 'N/A';
+            }
+        }
+        
+        row.innerHTML = `
+            <td class="px-3 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">${model.model_name}</div>
+            </td>
+            <td class="px-3 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">${model.target_column}</div>
+            </td>
+            <td class="px-3 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-light text-primary-dark">
+                    ${model.model_type}
+                </span>
+            </td>
+            <td class="px-3 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">${formattedDate}</div>
+            </td>
+            <td class="px-3 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">${primaryMetric}: ${primaryMetricValue}</div>
+            </td>
+            <td class="px-3 py-4 whitespace-nowrap text-sm font-medium">
+                <button class="text-primary hover:text-primary-dark mr-3 load-model-btn" data-model-id="${model.model_id}">
+                    <i class="fas fa-eye mr-1"></i> View
+                </button>
+                <button class="text-danger hover:text-danger-dark delete-model-btn" data-model-id="${model.model_id}">
+                    <i class="fas fa-trash mr-1"></i> Delete
+                </button>
+            </td>
+        `;
+        
+        // Add event listeners for the buttons
+        const loadBtn = row.querySelector('.load-model-btn');
+        const deleteBtn = row.querySelector('.delete-model-btn');
+        
+        if (loadBtn) {
+            loadBtn.addEventListener('click', function() {
+                loadModel(model.model_id);
+            });
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
+                deleteModel(model.model_id);
+            });
+        }
+        
+        modelsList.appendChild(row);
+    });
+}
+
+// Show empty state for saved models
+function showSavedModelsEmpty() {
+    const loading = document.getElementById('saved-models-loading');
+    const empty = document.getElementById('saved-models-empty');
+    const container = document.getElementById('saved-models-container');
+    
+    if (!loading || !empty || !container) return;
+    
+    loading.classList.add('hidden');
+    empty.classList.remove('hidden');
+    container.classList.add('hidden');
+}
+
+// Load a specific model
+function loadModel(modelId) {
+    showLoading('Loading model...');
+    
+    fetch(`/api/model/${modelId}`)
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                // Display model results
+                displayModelResults(data);
+                
+                // Store model for export
+                window.modelResults = data;
+                
+                // Scroll to results section
+                document.getElementById('model-section')?.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                showError(data.error || 'Error loading model');
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            showError(`Error loading model: ${error.message}`);
+            
+            // For demo, load mock model
+            const mockModels = getMockSavedModels();
+            const mockModel = mockModels.find(m => m.model_id === modelId);
+            
+            if (mockModel) {
+                displayModelResults(mockModel);
+                window.modelResults = mockModel;
+                document.getElementById('model-section')?.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+}
+
+// Delete a model
+function deleteModel(modelId) {
+    if (!confirm('Are you sure you want to delete this model? This action cannot be undone.')) {
+        return;
+    }
+    
+    showLoading('Deleting model...');
+    
+    fetch(`/api/model/${modelId}`, {
+        method: 'DELETE'
+    })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                // Refresh the models list
+                loadSavedModels(window.datasetId);
+            } else {
+                showError(data.error || 'Error deleting model');
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            showError(`Error deleting model: ${error.message}`);
+            
+            // For demo, remove from mock models
+            removeMockSavedModel(modelId);
+            
+            // Refresh the list with updated mock data
+            const mockModels = getMockSavedModels();
+            if (mockModels.length > 0) {
+                displaySavedModels(mockModels);
+            } else {
+                showSavedModelsEmpty();
+            }
+        });
+}
+
+// Get mock saved models for demo
+function getMockSavedModels() {
+    // Try to get saved models from localStorage
+    const savedModels = localStorage.getItem('mockSavedModels');
+    if (savedModels) {
+        try {
+            return JSON.parse(savedModels);
+        } catch (e) {
+            return [];
+        }
+    }
+    return [];
+}
+
+// Add a mock saved model
+function addMockSavedModel(model) {
+    const models = getMockSavedModels();
+    models.push(model);
+    localStorage.setItem('mockSavedModels', JSON.stringify(models));
+    
+    // Refresh the displayed models
+    displaySavedModels(models);
+}
+
+// Remove a mock saved model
+function removeMockSavedModel(modelId) {
+    const models = getMockSavedModels();
+    const updatedModels = models.filter(model => model.model_id !== modelId);
+    localStorage.setItem('mockSavedModels', JSON.stringify(updatedModels));
+}

@@ -122,6 +122,11 @@
                 <form id="model-form" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
+                            <label for="model-name" class="block text-sm font-medium text-gray-700 mb-1">Model Name</label>
+                            <input type="text" id="model-name" class="form-input w-full rounded-md border-gray-300" placeholder="Enter a name for this model">
+                            <p class="text-xs text-gray-500 mt-1">Give your model a meaningful name for future reference</p>
+                        </div>
+                        <div>
                             <label for="target-column" class="block text-sm font-medium text-gray-700 mb-1">Target Column</label>
                             <select id="target-column" class="form-select w-full rounded-md border-gray-300">
                                 <option value="">Select a column</option>
@@ -129,16 +134,17 @@
                             </select>
                             <p class="text-xs text-gray-500 mt-1">Select the column you want to predict</p>
                         </div>
-                        <div>
-                            <label for="model-type" class="block text-sm font-medium text-gray-700 mb-1">Model Type</label>
-                            <select id="model-type" class="form-select w-full rounded-md border-gray-300">
-                                <option value="LinearRegression">Linear Regression</option>
-                                <option value="RandomForest">Random Forest</option>
-                                <option value="GradientBoosting">Gradient Boosting</option>
-                                <option value="SVM">Support Vector Machine</option>
-                            </select>
-                            <p class="text-xs text-gray-500 mt-1">Select the type of model to train</p>
-                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="model-type" class="block text-sm font-medium text-gray-700 mb-1">Model Type</label>
+                        <select id="model-type" class="form-select w-full rounded-md border-gray-300">
+                            <option value="LinearRegression">Linear Regression</option>
+                            <option value="RandomForest">Random Forest</option>
+                            <option value="GradientBoosting">Gradient Boosting</option>
+                            <option value="SVM">Support Vector Machine</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Select the type of model to train</p>
                     </div>
                     
                     <!-- Linear Regression Parameters -->
@@ -261,6 +267,50 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Saved Models Section -->
+        <div class="card shadow-sm mb-6">
+            <div class="card-header bg-white p-4 border-b flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-save text-primary mr-2"></i> Saved Models
+                    </h2>
+                    <p class="text-sm text-gray-600 mt-1">View and load previously trained models</p>
+                </div>
+                <button id="refresh-models-btn" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-sync-alt mr-1"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body p-4">
+                <div id="saved-models-loading" class="py-8 text-center text-gray-500">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> Loading saved models...
+                </div>
+                <div id="saved-models-empty" class="py-8 text-center text-gray-500 hidden">
+                    <div class="text-gray-400 mb-3"><i class="fas fa-save fa-3x"></i></div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-1">No Saved Models</h3>
+                    <p class="text-gray-500">Train a model to save it for future use.</p>
+                </div>
+                <div id="saved-models-container" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model Name</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model Type</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metrics</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="saved-models-list" class="bg-white divide-y divide-gray-200">
+                                <!-- Saved models will be added here dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 

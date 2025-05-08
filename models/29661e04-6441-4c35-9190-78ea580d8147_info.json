@@ -1,0 +1,23 @@
+{
+  "id": "29661e04-6441-4c35-9190-78ea580d8147",
+  "dataset_id": "b14f607f-2a06-4420-9ca9-cb1270db02b6",
+  "name": "Test 1",
+  "target_column": "4. AI familiarity",
+  "model_type": "GradientBoosting",
+  "model_path": "models/29661e04-6441-4c35-9190-78ea580d8147.pkl",
+  "metrics": {
+    "r2_score": 0.8878883763129835,
+    "mean_absolute_error": 0.07185120757344973,
+    "mean_squared_error": 0.05270382132256122,
+    "root_mean_squared_error": 0.2295731284853722,
+    "cv_mean_score": 0.8864723378943469,
+    "cv_std_score": 0.020144164645591923
+  },
+  "created_at": "2025-05-05T01:22:49.389887",
+  "is_categorical_target": true,
+  "target_mapping": {
+    "Not familiar at all": 0,
+    "Somewhat familiar": 1,
+    "Very familiar": 2
+  }
+}

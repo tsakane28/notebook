@@ -1,0 +1,23 @@
+{
+  "id": "2d2a8582-c49c-46af-9c4f-f2a23593842d",
+  "dataset_id": "b14f607f-2a06-4420-9ca9-cb1270db02b6",
+  "name": "Test 1",
+  "target_column": "4. AI familiarity",
+  "model_type": "RandomForest",
+  "model_path": "models/2d2a8582-c49c-46af-9c4f-f2a23593842d.pkl",
+  "metrics": {
+    "r2_score": 0.918217616519489,
+    "mean_absolute_error": 0.06285871032027321,
+    "mean_squared_error": 0.035709740518442674,
+    "root_mean_squared_error": 0.18897021066412206,
+    "cv_mean_score": 0.8964267893700912,
+    "cv_std_score": 0.015922086338023504
+  },
+  "created_at": "2025-05-05T01:25:10.595252",
+  "is_categorical_target": true,
+  "target_mapping": {
+    "Not familiar at all": 0,
+    "Somewhat familiar": 1,
+    "Very familiar": 2
+  }
+}

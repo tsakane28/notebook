@@ -488,28 +488,41 @@ function displayData(data) {
 function updateStatsCards(data) {
     const statsContainer = document.getElementById('data-stats');
     if (!statsContainer) return;
+
+    const rowsCount = data.row_count || 0;
+    const columnsCount = Object.keys(data.stats || {}).length || 0;
     
-    // Clear previous stats
-    statsContainer.innerHTML = '';
+    // Count numeric and categorical columns
+    let numericCount = 0;
+    let categoricalCount = 0;
     
-    // Add row and column count stats
-    const statCards = [
-        { label: 'Total Rows', value: data.row_count },
-        { label: 'Total Columns', value: data.column_count },
-        { label: 'Numeric Columns', value: Object.values(data.stats).filter(s => s.type === 'numeric').length },
-        { label: 'Categorical Columns', value: Object.values(data.stats).filter(s => s.type === 'categorical').length }
-    ];
-    
-    // Create HTML for stat cards
-    statCards.forEach(stat => {
-        const cardHtml = `
-            <div class="bg-primary bg-opacity-5 p-4 rounded-lg text-center">
-                <h3 class="text-sm text-gray-600 mb-1">${stat.label}</h3>
-                <div class="text-xl font-bold text-primary">${stat.value}</div>
-            </div>
-        `;
-        statsContainer.innerHTML += cardHtml;
+    Object.values(data.stats || {}).forEach(stat => {
+        if (stat.type === 'numeric') {
+            numericCount++;
+        } else if (stat.type === 'categorical') {
+            categoricalCount++;
+        }
     });
+    
+    // Create the cards HTML
+    statsContainer.innerHTML = `
+        <div class="bg-primary rounded-lg p-4 shadow-sm">
+            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Total Rows</h3>
+            <div class="text-2xl font-bold text-white">${rowsCount}</div>
+        </div>
+        <div class="bg-primary rounded-lg p-4 shadow-sm">
+            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Total Columns</h3>
+            <div class="text-2xl font-bold text-white">${columnsCount}</div>
+        </div>
+        <div class="bg-primary rounded-lg p-4 shadow-sm">
+            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Numeric Columns</h3>
+            <div class="text-2xl font-bold text-white">${numericCount}</div>
+        </div>
+        <div class="bg-primary rounded-lg p-4 shadow-sm">
+            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Categorical Columns</h3>
+            <div class="text-2xl font-bold text-white">${categoricalCount}</div>
+        </div>
+    `;
 }
 
 // Create charts from data
@@ -872,6 +885,9 @@ function populateTargetColumnSelect(stats) {
 
 // Set up event listeners
 function setupEventListeners(datasetId) {
+    // Store dataset ID globally
+    window.datasetId = datasetId;
+    
     // Model training form
     const modelForm = document.getElementById('model-form');
     if (modelForm) {
@@ -934,19 +950,8 @@ function setupEventListeners(datasetId) {
         });
     }
     
-    // Refresh models button
-    const refreshModelsBtn = document.getElementById('refresh-models-btn');
-    if (refreshModelsBtn) {
-        refreshModelsBtn.addEventListener('click', function() {
-            loadSavedModels(datasetId);
-        });
-    }
-    
     // Setup scatter plot dialog
     setupScatterPlotDialog(datasetId);
-    
-    // Load saved models initially
-    loadSavedModels(datasetId);
 }
 
 // Toggle model parameters sections based on selected model type
@@ -1022,9 +1027,6 @@ function trainModel(datasetId) {
             
             // Store the model results for export
             window.modelResults = data;
-            
-            // Refresh the saved models list
-            loadSavedModels(datasetId);
         } else {
             showError(data.error || 'Error training model');
         }
@@ -1039,9 +1041,6 @@ function trainModel(datasetId) {
         
         // Store the model results for export
         window.modelResults = mockData;
-        
-        // Add mock model to saved models (for demo)
-        addMockSavedModel(mockData);
     });
 }
 

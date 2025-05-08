@@ -1175,7 +1175,7 @@ input:checked + .toggle-slider:before {
 .form-control:focus {
   border-color: var(--primary);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+  box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.25);
 }
 
 /* Data Preview Styles */
@@ -1695,7 +1695,7 @@ input:checked + .toggle-slider:before {
 .stats-label {
   color: var(--text-secondary);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .stats-value {
@@ -1746,9 +1746,6 @@ input:checked + .toggle-slider:before {
   font-weight: 600;
   text-align: left;
   padding: 0.75rem 1rem;
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 .data-preview-table td {
@@ -1772,12 +1769,6 @@ input:checked + .toggle-slider:before {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-}
-
-.info-section-header {
-  padding: 12px 16px;
-  background-color: var(--bg-light);
-  border-bottom: 1px solid var(--border-color);
 }
 
 .info-section-title {
@@ -2093,25 +2084,48 @@ input:checked + .toggle-slider:before {
 }
 
 .visual-type-toggle {
-  padding: 6px 10px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
   cursor: pointer;
   border-radius: 3px;
-  transition: all 0.2s;
-}
-
-.visual-type-toggle:hover {
-  background-color: rgba(0, 120, 212, 0.1);
+  transition: all 0.2s ease-in-out;
 }
 
 .visual-type-toggle.active {
-  background-color: var(--primary);
-  color: white;
+  background-color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
 }
 
 .visual-type-toggle i {
   margin-right: 6px;
   font-size: 14px;
+}
+
+/* Table container styles */
+.table-container {
+    overflow-x: auto;
+    max-height: 280px;
+    overflow-y: auto;
+    border-radius: 0.375rem;
+    border: 1px solid #e2e8f0;
+}
+
+.table-container table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-container th, .table-container td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+}
+
+.table-container thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #f9fafb;
+}
+
+.table-container tbody tr:hover {
+    background-color: #f3f4f6;
 } 

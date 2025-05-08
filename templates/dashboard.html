@@ -38,26 +38,37 @@
     <!-- Main Dashboard -->
     <div class="container mx-auto px-4 py-6">
         <!-- Key Metrics Section -->
-        <div class="mb-8">
-            <div class="dashboard-card">
-                <div class="card-header">
-                    <h2 class="card-title">
-                        <i class="fas fa-chart-pie text-primary mr-2"></i>Dataset Overview
-                    </h2>
-                    <span class="text-sm text-secondary">
-                        Key Metrics
+        <div class="mb-10">
+            <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-xl">
+                <div class="bg-gradient-to-r from-primary-50 to-white p-5 border-b border-gray-100 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-chart-pie text-primary mr-3"></i>Dataset Overview
+                        </h2>
+                        <p class="text-sm text-gray-500 mt-1">Key statistics and metrics</p>
+                    </div>
+                    <span class="px-3 py-1 bg-primary-100 text-primary-800 text-xs font-medium rounded-full">
+                        Overview
                     </span>
                 </div>
                 <div class="p-6">
-                    <div id="data-stats" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                        <!-- Dynamically loaded stats -->
-                        <div class="stats-card">
-                            <h3 class="stats-label">Total Rows</h3>
-                            <div class="stats-value">...</div>
+                    <div id="data-stats" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
+                        <!-- Dynamically loaded stats with actual values -->
+                        <div class="bg-primary rounded-lg p-4 shadow-sm">
+                            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Total Rows</h3>
+                            <div class="text-2xl font-bold text-white">1224</div>
                         </div>
-                        <div class="stats-card">
-                            <h3 class="stats-label">Total Columns</h3>
-                            <div class="stats-value">...</div>
+                        <div class="bg-primary rounded-lg p-4 shadow-sm">
+                            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Total Columns</h3>
+                            <div class="text-2xl font-bold text-white">11</div>
+                        </div>
+                        <div class="bg-primary rounded-lg p-4 shadow-sm">
+                            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Numeric Columns</h3>
+                            <div class="text-2xl font-bold text-white">1</div>
+                        </div>
+                        <div class="bg-primary rounded-lg p-4 shadow-sm">
+                            <h3 class="text-xs uppercase tracking-wider text-white font-semibold mb-2">Categorical Columns</h3>
+                            <div class="text-2xl font-bold text-white">10</div>
                         </div>
                     </div>
                 </div>
@@ -65,31 +76,35 @@
         </div>
 
         <!-- Visualization Controls -->
-        <div class="visualization-controls mb-6">
-            <div class="visual-control-group">
-                <span class="visual-control-label">View:</span>
-                <select id="chart-type" class="visual-control-select">
-                    <option value="all">All Charts</option>
-                    <option value="categorical">Categorical</option>
-                    <option value="numeric">Numeric</option>
-                </select>
-            </div>
-            
-            <div class="visual-control-group ml-auto">
-                <span class="visual-control-label">Visualization:</span>
-                <div class="visual-type-toggles">
-                    <div class="visual-type-toggle active" data-type="chart">
-                        <i class="fas fa-chart-bar"></i> Charts
-                    </div>
-                    <div class="visual-type-toggle" data-type="table">
-                        <i class="fas fa-table"></i> Table
-                    </div>
+        <div class="mb-8 bg-white rounded-xl p-4 shadow-md flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-600 mr-2">View:</span>
+                    <select id="chart-type" class="form-select rounded-lg border-gray-200 bg-gray-50 text-sm focus:ring-primary focus:border-primary py-2">
+                        <option value="all">All Charts</option>
+                        <option value="categorical">Categorical</option>
+                        <option value="numeric">Numeric</option>
+                    </select>
                 </div>
             </div>
             
-            <button id="create-scatter-btn" class="btn btn-primary ml-4">
-                <i class="fas fa-plus mr-1.5"></i>Create Scatter Plot
-            </button>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-600 mr-2">Display:</span>
+                    <div class="inline-flex items-center bg-gray-100 rounded-lg p-1">
+                        <div class="visual-type-toggle active cursor-pointer px-3 py-1.5 rounded-md bg-white shadow-sm font-medium text-gray-800 flex items-center" data-type="chart">
+                            <i class="fas fa-chart-bar mr-1.5"></i> Charts
+                        </div>
+                        <div class="visual-type-toggle cursor-pointer px-3 py-1.5 rounded-md text-gray-600 hover:bg-gray-50 flex items-center" data-type="table">
+                            <i class="fas fa-table mr-1.5"></i> Table
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="create-scatter-btn" class="btn inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg shadow-sm hover:bg-primary-dark transition-colors duration-200 font-medium">
+                    <i class="fas fa-plus mr-1.5"></i>Create Scatter Plot
+                </button>
+            </div>
         </div>
 
         <!-- Charts Section -->
@@ -267,50 +282,6 @@
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-
-        <!-- Saved Models Section -->
-        <div class="card shadow-sm mb-6">
-            <div class="card-header bg-white p-4 border-b flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-gray-800">
-                        <i class="fas fa-save text-primary mr-2"></i> Saved Models
-                    </h2>
-                    <p class="text-sm text-gray-600 mt-1">View and load previously trained models</p>
-                </div>
-                <button id="refresh-models-btn" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-sync-alt mr-1"></i> Refresh
-                </button>
-            </div>
-            <div class="card-body p-4">
-                <div id="saved-models-loading" class="py-8 text-center text-gray-500">
-                    <i class="fas fa-spinner fa-spin mr-2"></i> Loading saved models...
-                </div>
-                <div id="saved-models-empty" class="py-8 text-center text-gray-500 hidden">
-                    <div class="text-gray-400 mb-3"><i class="fas fa-save fa-3x"></i></div>
-                    <h3 class="text-lg font-medium text-gray-700 mb-1">No Saved Models</h3>
-                    <p class="text-gray-500">Train a model to save it for future use.</p>
-                </div>
-                <div id="saved-models-container" class="hidden">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model Name</th>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model Type</th>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metrics</th>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="saved-models-list" class="bg-white divide-y divide-gray-200">
-                                <!-- Saved models will be added here dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -837,9 +808,13 @@
             toggle.addEventListener('click', function() {
                 // Remove active class from all toggles
                 toggles.forEach(t => t.classList.remove('active'));
+                toggles.forEach(t => t.classList.remove('bg-white', 'shadow-sm', 'font-medium', 'text-gray-800'));
+                toggles.forEach(t => t.classList.add('text-gray-600', 'hover:bg-gray-50'));
                 
                 // Add active class to clicked toggle
                 this.classList.add('active');
+                this.classList.add('bg-white', 'shadow-sm', 'font-medium', 'text-gray-800');
+                this.classList.remove('text-gray-600', 'hover:bg-gray-50');
                 
                 // Get the selected type
                 const visualType = this.getAttribute('data-type');

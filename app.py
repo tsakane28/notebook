@@ -9,6 +9,7 @@ import os
 import json
 import uuid
 import sqlite3
+import tempfile
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 import pandas as pd
@@ -27,16 +28,33 @@ from utils.model_trainer import train_model, evaluate_model
 
 # Initialize Flask application
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'data/uploads'
-app.config['MODELS_FOLDER'] = 'data/models'
-app.config['DATABASE'] = 'data/dashboard.db'
+
+# Determine if we're running in production (Vercel) or development
+is_production = os.environ.get('VERCEL_ENV') == 'production'
+
+# Setup paths (using tmp directory in production for temporary file storage)
+if is_production:
+    # In production, use /tmp for temporary storage
+    app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+    app.config['MODELS_FOLDER'] = '/tmp/models'
+    app.config['DATABASE'] = '/tmp/dashboard.db'
+else:
+    # In development, use local paths
+    app.config['UPLOAD_FOLDER'] = 'data/uploads'
+    app.config['MODELS_FOLDER'] = 'data/models'
+    app.config['DATABASE'] = 'data/dashboard.db'
+
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
-app.secret_key = os.urandom(24)  # For session management
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))  # For session management
 
 # Ensure required directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['MODELS_FOLDER'], exist_ok=True)
 os.makedirs('data', exist_ok=True)
+
+# Create a directory for storing models if it doesn't exist
+if not os.path.exists('models'):
+    os.makedirs('models')
 
 # Database initialization
 def get_db_connection():
@@ -64,10 +82,6 @@ def init_db():
 
 # Initialize database on startup
 init_db()
-
-# Create a directory for storing models if it doesn't exist
-if not os.path.exists('models'):
-    os.makedirs('models')
 
 # Database of datasets (in-memory for demo)
 datasets = {}
@@ -579,14 +593,15 @@ def save_model(dataset_id, model, target_column, model_type, metrics, model_name
         model_name: User-provided name for the model
         model_info: Additional model information like categorical mappings
     """
-    # Create a models directory if it doesn't exist
-    os.makedirs('models', exist_ok=True)
+    # Use the configured models folder
+    models_dir = app.config['MODELS_FOLDER']
+    os.makedirs(models_dir, exist_ok=True)
     
     # Generate a unique model ID
     model_id = str(uuid.uuid4())
     
     # Save the model with pickle
-    model_path = f"models/{model_id}.pkl"
+    model_path = os.path.join(models_dir, f'{model_id}.pkl')
     with open(model_path, 'wb') as f:
         pickle.dump(model, f)
     
@@ -610,7 +625,7 @@ def save_model(dataset_id, model, target_column, model_type, metrics, model_name
         model_data.update(model_info)
     
     # Save model info to JSON file
-    info_path = f"models/{model_id}_info.json"
+    info_path = os.path.join(models_dir, f'{model_id}_info.json')
     with open(info_path, 'w') as f:
         json.dump(model_data, f, indent=2)
     
@@ -744,13 +759,15 @@ def delete_model(model_id):
         })
     
     try:
+        models_dir = app.config['MODELS_FOLDER']
+        
         # Delete model file
-        model_path = os.path.join('models', f'{model_id}.pkl')
+        model_path = os.path.join(models_dir, f'{model_id}.pkl')
         if os.path.exists(model_path):
             os.remove(model_path)
         
         # Delete model info file
-        model_info_path = os.path.join('models', f'{model_id}_info.json')
+        model_info_path = os.path.join(models_dir, f'{model_id}_info.json')
         if os.path.exists(model_info_path):
             os.remove(model_info_path)
         
@@ -769,12 +786,13 @@ def delete_model(model_id):
 
 # Load saved models on startup
 def load_saved_models():
-    if os.path.exists('models'):
-        for filename in os.listdir('models'):
+    models_dir = app.config['MODELS_FOLDER']
+    if os.path.exists(models_dir):
+        for filename in os.listdir(models_dir):
             if filename.endswith('_info.json'):
                 try:
                     model_id = filename.replace('_info.json', '')
-                    with open(os.path.join('models', filename), 'r') as f:
+                    with open(os.path.join(models_dir, filename), 'r') as f:
                         model_info = json.load(f)
                         models[model_id] = model_info
                 except Exception as e:
@@ -785,4 +803,6 @@ load_saved_models()
 
 # Start the app
 if __name__ == '__main__':
-    app.run(debug=True) 
+    # Use environment variable for port with a default of 5000
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=not is_production) 

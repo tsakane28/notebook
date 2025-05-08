@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -15,16 +16,35 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Virtual Environment
-venv/
-env/
 .env
+venv/
 .venv/
+
+# Flask
+instance/
+.webassets-cache
+
+# Data and models
+data/
+models/
+*.csv
+*.pkl
+*.joblib
+*.db
+
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
 
 # Development tools
 .idea/
@@ -40,14 +60,6 @@ data/encoders/*
 !data/uploads/.gitkeep
 !data/models/.gitkeep
 !data/encoders/.gitkeep
-
-# Logs
-logs/
-*.log
-
-# Database
-*.db
-*.sqlite3
 
 # Test coverage
 .coverage

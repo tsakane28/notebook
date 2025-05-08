@@ -1,6 +1,7 @@
 # Core web framework
 Flask==2.0.1
 Werkzeug==2.0.1
+gunicorn==20.1.0
 
 # Data processing
 pandas==1.3.4
@@ -18,4 +19,4 @@ seaborn==0.11.2
 # Utilities
 python-dotenv==0.19.2
 requests==2.26.0
-Pillow==8.4.0 
+Pillow==8.4.0
